@@ -1,1 +1,0 @@
-Full screen views (e.g., /Login, /Dashboard, /Game, /Results)
