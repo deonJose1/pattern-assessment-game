@@ -1,0 +1,205 @@
+// Leaderboard — gamified ranking of teams for a selected hackathon. Card/list
+// layout with distinct gold/silver/bronze styling for the top 3. Mock data.
+
+import { useState } from 'react'
+
+const TEAMS = [
+  {
+    id: 1,
+    teamName: 'Neural Ninjas',
+    projectTitle: 'CostGuard — AI Cloud Spend Optimizer',
+    score: 96,
+    hackathon: 'AI Innovation Sprint',
+  },
+  {
+    id: 2,
+    teamName: 'Data Dynamos',
+    projectTitle: 'InsightLens — Realtime Anomaly Detection',
+    score: 91,
+    hackathon: 'AI Innovation Sprint',
+  },
+  {
+    id: 3,
+    teamName: 'Quantum Quokkas',
+    projectTitle: 'LedgerLink — Cross-Bank Reconciliation',
+    score: 88,
+    hackathon: 'FinTech Build Weekend',
+  },
+  {
+    id: 4,
+    teamName: 'Pixel Pioneers',
+    projectTitle: 'PayFlow — Instant Settlement Dashboard',
+    score: 84,
+    hackathon: 'FinTech Build Weekend',
+  },
+  {
+    id: 5,
+    teamName: 'Cloud Crusaders',
+    projectTitle: 'K8s Migrator — Legacy to Microservices',
+    score: 79,
+    hackathon: 'Cloud Native Challenge',
+  },
+  {
+    id: 6,
+    teamName: 'Async Avengers',
+    projectTitle: 'StreamSync — Event-Driven Pipeline',
+    score: 73,
+    hackathon: 'Cloud Native Challenge',
+  },
+  {
+    id: 7,
+    teamName: 'Logic Llamas',
+    projectTitle: 'PromptForge — LLM Eval Harness',
+    score: 68,
+    hackathon: 'AI Innovation Sprint',
+  },
+]
+
+// Unique hackathon names for the filter dropdown.
+const HACKATHON_OPTIONS = [...new Set(TEAMS.map((team) => team.hackathon))]
+
+// Per-rank visual treatment for the podium (1–3).
+const RANK_STYLES = {
+  1: { container: 'border-yellow-400 bg-yellow-50', icon: 'text-yellow-500' },
+  2: { container: 'border-slate-300 bg-slate-100', icon: 'text-slate-400' },
+  3: { container: 'border-orange-300 bg-orange-50', icon: 'text-orange-400' },
+}
+
+function TrophyIcon({ className }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </svg>
+  )
+}
+
+function MedalIcon({ className }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15" />
+      <circle cx="12" cy="17" r="5" />
+      <path d="M12 18v-2h-.5" />
+    </svg>
+  )
+}
+
+function Leaderboard() {
+  const [selectedHackathon, setSelectedHackathon] = useState('All')
+
+  const ranked = TEAMS.filter(
+    (team) =>
+      selectedHackathon === 'All' || team.hackathon === selectedHackathon,
+  ).sort((a, b) => b.score - a.score)
+
+  return (
+    <div>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-indigo-950">Live Leaderboard</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Team rankings by final score.
+          </p>
+        </div>
+
+        <select
+          value={selectedHackathon}
+          onChange={(event) => setSelectedHackathon(event.target.value)}
+          className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 sm:w-64"
+        >
+          <option value="All">All Hackathons</option>
+          {HACKATHON_OPTIONS.map((hackathon) => (
+            <option key={hackathon} value={hackathon}>
+              {hackathon}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {ranked.length === 0 ? (
+        <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-sm font-medium text-slate-500 shadow-sm">
+          No ranked teams for this hackathon yet.
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {ranked.map((team, index) => {
+            const rank = index + 1
+            const podium = RANK_STYLES[rank]
+            const containerTone = podium
+              ? podium.container
+              : 'border-gray-100 bg-white'
+
+            return (
+              <li
+                key={team.id}
+                className={`flex items-center gap-4 rounded-2xl border p-4 shadow-sm transition-colors ${containerTone}`}
+              >
+                {/* Rank / medal */}
+                <div className="flex w-12 shrink-0 items-center justify-center">
+                  {podium ? (
+                    rank === 1 ? (
+                      <TrophyIcon className={`h-8 w-8 ${podium.icon}`} />
+                    ) : (
+                      <MedalIcon className={`h-8 w-8 ${podium.icon}`} />
+                    )
+                  ) : (
+                    <span className="text-lg font-bold text-slate-400">
+                      #{rank}
+                    </span>
+                  )}
+                </div>
+
+                {/* Team info */}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-slate-900">
+                    {team.teamName}
+                  </p>
+                  <p className="truncate text-sm text-slate-500">
+                    {team.projectTitle}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    {team.hackathon}
+                  </p>
+                </div>
+
+                {/* Score */}
+                <div className="shrink-0 text-right">
+                  <p className="text-3xl font-extrabold text-slate-900 tabular-nums sm:text-4xl">
+                    {team.score}
+                  </p>
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    points
+                  </p>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+export default Leaderboard

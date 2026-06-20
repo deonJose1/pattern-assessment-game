@@ -6,8 +6,8 @@
 //
 // Icons are inline SVGs (no extra dependency). Child routes render via <Outlet/>.
 
-import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 /* ------------------------------ Icons ------------------------------ */
 
@@ -78,16 +78,69 @@ const UsersIcon = (props) => (
   </svg>
 )
 
+const ParticipantsIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <polyline points="16 11 18 13 22 9" />
+  </svg>
+)
+
+const SubmissionsIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+    <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+  </svg>
+)
+
+const BarChartIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <line x1="12" y1="20" x2="12" y2="10" />
+    <line x1="18" y1="20" x2="18" y2="4" />
+    <line x1="6" y1="20" x2="6" y2="16" />
+  </svg>
+)
+
+const AwardIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <circle cx="12" cy="8" r="7" />
+    <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+  </svg>
+)
+
+const LogoutIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+)
+
 /* ------------------------------ Nav config ------------------------------ */
 
 const NAV_ITEMS = [
-  { label: 'Dashboard', to: '/', end: true, Icon: DashboardIcon },
+  { label: 'Dashboard', to: '/dashboard', end: true, Icon: DashboardIcon },
+  { label: 'Leaderboard', to: '/leaderboard', end: false, Icon: BarChartIcon },
   { label: 'Manage Hackathons', to: '/hackathons', end: false, Icon: TrophyIcon },
+  { label: 'Participants', to: '/participants', end: false, Icon: ParticipantsIcon },
+  { label: 'Submissions', to: '/submissions', end: false, Icon: SubmissionsIcon },
+  { label: 'Score Management', to: '/scores', end: false, Icon: AwardIcon },
   { label: 'Teams', to: '/teams', end: false, Icon: UsersIcon },
 ]
 
 // Tailwind's `lg` breakpoint (1024px) divides drawer (mobile) from rail (desktop).
 const DESKTOP_BREAKPOINT = 1024
+
+// Derive avatar initials from an email: john.doe@… → JD, admin@… → AD.
+function getInitials(email) {
+  if (!email) return 'AD'
+  const local = email.split('@')[0]
+  const parts = local.split(/[._-]+/).filter(Boolean)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase()
+  }
+  return local.slice(0, 2).toUpperCase()
+}
 
 /* ------------------------------ Layout ------------------------------ */
 
@@ -103,6 +156,42 @@ function AdminLayout() {
       setIsSidebarOpen(false)
     }
   }
+
+  const navigate = useNavigate()
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const userMenuRef = useRef(null)
+  // Read the logged-in email once on mount (set at login).
+  const [adminEmail] = useState(
+    () =>
+      (typeof window !== 'undefined' && localStorage.getItem('adminEmail')) ||
+      '',
+  )
+
+  const handleLogout = () => {
+    // Clear only the auth session — preserve mock DB data (hackathons, etc.).
+    localStorage.removeItem('isAdminAuth')
+    localStorage.removeItem('adminEmail')
+    navigate('/login')
+  }
+
+  // Close the user menu on outside click or Escape.
+  useEffect(() => {
+    if (!isUserMenuOpen) return
+    function handlePointer(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false)
+      }
+    }
+    function handleKey(event) {
+      if (event.key === 'Escape') setIsUserMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handlePointer)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handlePointer)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [isUserMenuOpen])
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -165,8 +254,39 @@ function AdminLayout() {
           >
             <HelpIcon className={iconBase} />
           </button>
-          <div className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
-            AD
+          <div className="relative ml-1" ref={userMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsUserMenuOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={isUserMenuOpen}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white transition-shadow hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            >
+              {getInitials(adminEmail)}
+            </button>
+
+            {isUserMenuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+              >
+                <div className="border-b border-gray-100 px-4 py-2">
+                  <p className="text-xs text-slate-500">Signed in as</p>
+                  <p className="truncate text-sm font-semibold text-slate-900">
+                    {adminEmail || 'admin@cognizant.com'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-red-50 hover:text-red-600"
+                >
+                  <LogoutIcon className="h-4 w-4" />
+                  Logout
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
