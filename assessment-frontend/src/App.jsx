@@ -3,6 +3,7 @@
 // unauthenticated users are redirected to /login.
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { ToastProvider } from './context/ToastContext'
 import AdminLayout from './components/AdminLayout'
 import AdminLogin from './components/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
@@ -23,8 +24,9 @@ function ProtectedRoute({ children }) {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <ToastProvider>
+      <BrowserRouter>
+        <Routes>
         {/* Public */}
         <Route path="/login" element={<AdminLogin />} />
 
@@ -47,8 +49,9 @@ function App() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/teams" element={<TeamsList />} />
         </Route>
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </ToastProvider>
   )
 }
 

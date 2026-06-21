@@ -1,5 +1,6 @@
 // Leaderboard — gamified ranking of teams for a selected hackathon. Card/list
-// layout with distinct gold/silver/bronze styling for the top 3. Mock data.
+// layout with distinct gold/silver/bronze styling for the top 3, plus a
+// client-side CSV export of the current view. Mock data.
 
 import { useState } from 'react'
 
@@ -106,13 +107,59 @@ function MedalIcon({ className }) {
   )
 }
 
+function DownloadIcon({ className }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+}
+
+// Wrap a value in quotes and escape any embedded quotes (CSV-safe).
+const escapeCsv = (value) => `"${String(value).replace(/"/g, '""')}"`
+
 function Leaderboard() {
   const [selectedHackathon, setSelectedHackathon] = useState('All')
 
-  const ranked = TEAMS.filter(
+  const filteredTeams = TEAMS.filter(
     (team) =>
       selectedHackathon === 'All' || team.hackathon === selectedHackathon,
   ).sort((a, b) => b.score - a.score)
+
+  const handleExportCSV = () => {
+    const headers = ['Rank', 'Team', 'Project', 'Hackathon', 'Score']
+    const rows = filteredTeams.map((team, index) =>
+      [
+        index + 1,
+        escapeCsv(team.teamName),
+        escapeCsv(team.projectTitle),
+        escapeCsv(team.hackathon),
+        team.score,
+      ].join(','),
+    )
+    const csvContent = [headers.join(','), ...rows].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'leaderboard-export.csv'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div>
@@ -124,27 +171,39 @@ function Leaderboard() {
           </p>
         </div>
 
-        <select
-          value={selectedHackathon}
-          onChange={(event) => setSelectedHackathon(event.target.value)}
-          className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 sm:w-64"
-        >
-          <option value="All">All Hackathons</option>
-          {HACKATHON_OPTIONS.map((hackathon) => (
-            <option key={hackathon} value={hackathon}>
-              {hackathon}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-3">
+          <select
+            value={selectedHackathon}
+            onChange={(event) => setSelectedHackathon(event.target.value)}
+            className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 sm:w-64"
+          >
+            <option value="All">All Hackathons</option>
+            {HACKATHON_OPTIONS.map((hackathon) => (
+              <option key={hackathon} value={hackathon}>
+                {hackathon}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            disabled={filteredTeams.length === 0}
+            className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <DownloadIcon className="h-4 w-4" />
+            Export CSV
+          </button>
+        </div>
       </div>
 
-      {ranked.length === 0 ? (
+      {filteredTeams.length === 0 ? (
         <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-sm font-medium text-slate-500 shadow-sm">
           No ranked teams for this hackathon yet.
         </div>
       ) : (
         <ul className="space-y-3">
-          {ranked.map((team, index) => {
+          {filteredTeams.map((team, index) => {
             const rank = index + 1
             const podium = RANK_STYLES[rank]
             const containerTone = podium

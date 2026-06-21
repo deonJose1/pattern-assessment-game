@@ -3,6 +3,7 @@
 // and flips the status to 'Scored'. Mock data (backend pending).
 
 import { useState } from 'react'
+import { useToast } from '../context/ToastContext'
 
 const INITIAL_SUBMISSIONS = [
   {
@@ -43,6 +44,7 @@ function ScoreManagement() {
   const [submissions, setSubmissions] = useState(INITIAL_SUBMISSIONS)
   // Draft input values keyed by submission id (before submit).
   const [scoreInputs, setScoreInputs] = useState({})
+  const { showToast } = useToast()
 
   const handleInputChange = (id, value) => {
     setScoreInputs((prev) => ({ ...prev, [id]: value }))
@@ -63,6 +65,7 @@ function ScoreManagement() {
           : submission,
       ),
     )
+    showToast('Score saved successfully!', 'success')
   }
 
   return (

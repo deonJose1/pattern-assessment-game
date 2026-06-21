@@ -3,6 +3,7 @@
 // submission re-renders its badge instantly. Mock data (backend pending).
 
 import { useState } from 'react'
+import { useToast } from '../context/ToastContext'
 
 const INITIAL_SUBMISSIONS = [
   {
@@ -90,6 +91,7 @@ function ExternalLinkIcon({ className }) {
 
 function SubmissionTracking() {
   const [submissions, setSubmissions] = useState(INITIAL_SUBMISSIONS)
+  const { showToast } = useToast()
 
   const updateStatus = (id, status) => {
     setSubmissions((prev) =>
@@ -97,6 +99,16 @@ function SubmissionTracking() {
         submission.id === id ? { ...submission, status } : submission,
       ),
     )
+  }
+
+  const handleApprove = (id) => {
+    updateStatus(id, 'Approved')
+    showToast('Submission approved successfully!', 'success')
+  }
+
+  const handleReject = (id) => {
+    updateStatus(id, 'Rejected')
+    showToast('Submission rejected.', 'error')
   }
 
   return (
@@ -161,18 +173,14 @@ function SubmissionTracking() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
-                            onClick={() =>
-                              updateStatus(submission.id, 'Approved')
-                            }
+                            onClick={() => handleApprove(submission.id)}
                             className="rounded-lg border border-green-200 px-3 py-1.5 text-xs font-semibold text-green-700 transition-colors hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-300"
                           >
                             Approve
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
-                              updateStatus(submission.id, 'Rejected')
-                            }
+                            onClick={() => handleReject(submission.id)}
                             className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300"
                           >
                             Reject
