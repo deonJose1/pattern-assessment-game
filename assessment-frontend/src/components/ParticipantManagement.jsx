@@ -1,58 +1,45 @@
-// Participant management — premium, airy table of registered participants with
-// client-side search and role badges. Mock data (backend pending).
+// Participant management — relational mock data derived from the shared store.
+// Each team in localStorage generates 2 members (Frontend + Backend), linked to
+// that team and its hackathon. Client-side search + role badges. Premium table.
 
 import { useState } from 'react'
 
-const PARTICIPANTS = [
-  {
-    id: 1,
-    name: 'Aarav Sharma',
-    email: 'aarav.sharma@cognizant.com',
-    teamName: 'Neural Ninjas',
-    registeredHackathon: 'AI Innovation Sprint',
-    role: 'AI Engineer',
-  },
-  {
-    id: 2,
-    name: 'Priya Nair',
-    email: 'priya.nair@cognizant.com',
-    teamName: 'Pixel Pioneers',
-    registeredHackathon: 'FinTech Build Weekend',
-    role: 'Frontend',
-  },
-  {
-    id: 3,
-    name: 'Marcus Lee',
-    email: 'marcus.lee@cognizant.com',
-    teamName: 'Cloud Crusaders',
-    registeredHackathon: 'Cloud Native Challenge',
-    role: 'Backend',
-  },
-  {
-    id: 4,
-    name: 'Sofia Rossi',
-    email: 'sofia.rossi@cognizant.com',
-    teamName: 'Neural Ninjas',
-    registeredHackathon: 'AI Innovation Sprint',
-    role: 'AI Engineer',
-  },
-  {
-    id: 5,
-    name: 'David Okafor',
-    email: 'david.okafor@cognizant.com',
-    teamName: 'Pixel Pioneers',
-    registeredHackathon: 'FinTech Build Weekend',
-    role: 'Frontend',
-  },
-  {
-    id: 6,
-    name: 'Hana Kim',
-    email: 'hana.kim@cognizant.com',
-    teamName: 'Cloud Crusaders',
-    registeredHackathon: 'Cloud Native Challenge',
-    role: 'Backend',
-  },
+const STORAGE_KEY = 'shared_hackathon_data'
+
+function loadSharedData() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) return JSON.parse(stored)
+  } catch {
+    // Corrupt/unreadable storage — fall through to empty.
+  }
+  return []
+}
+
+const FIRST_NAMES = [
+  'Alice', 'Bob', 'Carlos', 'Diana', 'Ethan', 'Fatima',
+  'Grace', 'Hiro', 'Ivy', 'Jamal', 'Kira', 'Liam',
+  'Maya', 'Noah', 'Omar', 'Priya', 'Quinn', 'Rosa',
 ]
+
+const MEMBER_ROLES = ['Frontend', 'Backend']
+
+// Expand each team (submission) into 2 relational member records.
+function buildParticipants(data) {
+  return data.flatMap((submission, teamIndex) =>
+    MEMBER_ROLES.map((role, memberIndex) => {
+      const name = FIRST_NAMES[(teamIndex * 2 + memberIndex) % FIRST_NAMES.length]
+      return {
+        id: `${submission.id}-${memberIndex}`,
+        name,
+        email: `${name.toLowerCase()}@cognizant.com`,
+        teamName: submission.team,
+        hackathon: submission.hackathon,
+        role,
+      }
+    }),
+  )
+}
 
 // Subtle role pill — purple for AI, blue for Frontend, gray for Backend/other.
 function RoleBadge({ role }) {
@@ -78,15 +65,7 @@ function RoleBadge({ role }) {
 
 function SearchIcon({ className }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      aria-hidden="true"
-      className={className}
-    >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" className={className}>
       <circle cx="11" cy="11" r="8" />
       <line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
@@ -94,17 +73,18 @@ function SearchIcon({ className }) {
 }
 
 function ParticipantManagement() {
+  const [participants] = useState(() => buildParticipants(loadSharedData()))
   const [query, setQuery] = useState('')
 
   const normalizedQuery = query.trim().toLowerCase()
-  const filtered = PARTICIPANTS.filter((participant) =>
+  const filtered = participants.filter((participant) =>
     [
       participant.name,
       participant.email,
       participant.teamName,
-      participant.registeredHackathon,
+      participant.hackathon,
       participant.role,
-    ].some((field) => field.toLowerCase().includes(normalizedQuery)),
+    ].some((field) => (field || '').toLowerCase().includes(normalizedQuery)),
   )
 
   return (
@@ -139,7 +119,7 @@ function ParticipantManagement() {
                 <th className="px-6 py-3">Name</th>
                 <th className="px-6 py-3">Email</th>
                 <th className="px-6 py-3">Team</th>
-                <th className="px-6 py-3">Registered Hackathon</th>
+                <th className="px-6 py-3">Hackathon</th>
                 <th className="px-6 py-3">Role</th>
               </tr>
             </thead>
@@ -148,7 +128,7 @@ function ParticipantManagement() {
                 <tr>
                   <td
                     colSpan={5}
-                    className="px-6 py-10 text-center text-sm text-slate-400"
+                    className="px-6 py-12 text-center text-sm text-slate-400"
                   >
                     No participants found.
                   </td>
@@ -169,7 +149,7 @@ function ParticipantManagement() {
                       {participant.teamName}
                     </td>
                     <td className="px-6 py-4 text-slate-600">
-                      {participant.registeredHackathon}
+                      {participant.hackathon}
                     </td>
                     <td className="px-6 py-4">
                       <RoleBadge role={participant.role} />

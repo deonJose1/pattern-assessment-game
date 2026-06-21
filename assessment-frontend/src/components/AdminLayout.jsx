@@ -1,5 +1,5 @@
 // Admin module shell — premium enterprise layout:
-//   • Light, sticky top navbar (logo, global search, "Ask AI" pill, actions)
+//   • Light, sticky top navbar (logo, active search, "Ask AI" drawer, actions)
 //   • Dark navy sidebar that is an off-canvas drawer on mobile (< lg) and a
 //     collapsible w-64 ↔ w-20 icon rail on desktop (>= lg)
 //   • Light content area with a corporate footer
@@ -7,7 +7,24 @@
 // Icons are inline SVGs (no extra dependency). Child routes render via <Outlet/>.
 
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+
+const STORAGE_KEY = 'shared_hackathon_data'
+
+// Read PENDING submissions from the shared store (for the notification badge
+// and dropdown list).
+function loadPendingItems() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      const data = JSON.parse(stored)
+      return data.filter((d) => d.status?.toUpperCase() === 'PENDING')
+    }
+  } catch {
+    // Corrupt/unreadable storage — treat as none.
+  }
+  return []
+}
 
 /* ------------------------------ Icons ------------------------------ */
 
@@ -46,6 +63,13 @@ const HelpIcon = (props) => (
     <circle cx="12" cy="12" r="10" />
     <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
     <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+)
+
+const CloseIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
   </svg>
 )
 
@@ -158,8 +182,27 @@ function AdminLayout() {
   }
 
   const navigate = useNavigate()
+  const location = useLocation()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const userMenuRef = useRef(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false)
+  const [isNotifOpen, setIsNotifOpen] = useState(false)
+  const [isHelpOpen, setIsHelpOpen] = useState(false)
+  const [pendingItems, setPendingItems] = useState([])
+  const notifRef = useRef(null)
+
+  // AI assistant chat state (UI-only demo).
+  const [chatInput, setChatInput] = useState('')
+  const [messages, setMessages] = useState([
+    {
+      id: 1,
+      sender: 'ai',
+      text: 'Hello Admin! I am your Cognizant AI Assistant. I can help you evaluate project submissions, generate real-time leaderboards, or customize your hackathon evaluation criteria. What can I do for you today?',
+    },
+  ])
+  const messageIdRef = useRef(2)
+
   // Read the logged-in email once on mount (set at login).
   const [adminEmail] = useState(
     () =>
@@ -167,11 +210,41 @@ function AdminLayout() {
       '',
   )
 
+  // Recompute the pending badge on every route change (the layout itself does
+  // not remount between routes, so a one-time read would go stale).
+  useEffect(() => {
+    setPendingItems(loadPendingItems())
+  }, [location.pathname])
+
   const handleLogout = () => {
     // Clear only the auth session — preserve mock DB data (hackathons, etc.).
     localStorage.removeItem('isAdminAuth')
     localStorage.removeItem('adminEmail')
     navigate('/login')
+  }
+
+  const handleSendMessage = () => {
+    const text = chatInput.trim()
+    if (!text) return
+
+    // Render the user's message, clear the input.
+    setMessages((prev) => [
+      ...prev,
+      { id: messageIdRef.current++, sender: 'user', text },
+    ])
+    setChatInput('')
+
+    // Simulate network latency, then append a canned AI reply.
+    setTimeout(() => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: messageIdRef.current++,
+          sender: 'ai',
+          text: 'I am currently operating in UI-only demo mode. To unlock my full analytical capabilities, please connect me to the Spring Boot backend!',
+        },
+      ])
+    }, 1500)
   }
 
   // Close the user menu on outside click or Escape.
@@ -192,6 +265,45 @@ function AdminLayout() {
       document.removeEventListener('keydown', handleKey)
     }
   }, [isUserMenuOpen])
+
+  // Close the AI assistant drawer on Escape.
+  useEffect(() => {
+    if (!isAssistantOpen) return
+    function handleKey(event) {
+      if (event.key === 'Escape') setIsAssistantOpen(false)
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [isAssistantOpen])
+
+  // Close the notifications dropdown on outside click or Escape.
+  useEffect(() => {
+    if (!isNotifOpen) return
+    function handlePointer(event) {
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setIsNotifOpen(false)
+      }
+    }
+    function handleKey(event) {
+      if (event.key === 'Escape') setIsNotifOpen(false)
+    }
+    document.addEventListener('mousedown', handlePointer)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handlePointer)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [isNotifOpen])
+
+  // Close the help modal on Escape.
+  useEffect(() => {
+    if (!isHelpOpen) return
+    function handleKey(event) {
+      if (event.key === 'Escape') setIsHelpOpen(false)
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [isHelpOpen])
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -218,18 +330,56 @@ function AdminLayout() {
           </div>
         </div>
 
-        {/* Center: global search + Ask AI (the unique flair) */}
+        {/* Center: active global search + Ask AI */}
         <div className="hidden items-center gap-2 md:flex">
-          <div className="flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 transition-colors focus-within:bg-slate-200/70">
-            <SearchIcon className="h-4 w-4 text-slate-400" />
-            <input
-              type="search"
-              placeholder="Search hackathons, teams…"
-              className="w-56 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
-            />
+          <div className="relative">
+            <div className="flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 transition-colors focus-within:bg-slate-200/70">
+              <SearchIcon className="h-4 w-4 text-slate-400" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search hackathons, teams…"
+                className="w-56 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+              />
+            </div>
+            {searchQuery.trim() && (
+              <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
+                <div className="flex items-center gap-2.5">
+                  <svg
+                    className="h-4 w-4 shrink-0 animate-spin text-blue-500"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 0 1 8-8V0C5.37 0 0 5.37 0 12h4z"
+                    />
+                  </svg>
+                  <span className="text-sm text-slate-500">
+                    Searching global database for{' '}
+                    <span className="font-medium text-slate-700">
+                      &apos;{searchQuery}&apos;
+                    </span>
+                    …
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
           <button
             type="button"
+            onClick={() => setIsAssistantOpen(true)}
             className="flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
           >
             <SparkleIcon className="h-3.5 w-3.5" />
@@ -239,16 +389,59 @@ function AdminLayout() {
 
         {/* Right: notifications, help, avatar */}
         <div className="flex items-center gap-1 sm:gap-2">
+          <div className="relative" ref={notifRef}>
+            <button
+              type="button"
+              onClick={() => setIsNotifOpen((open) => !open)}
+              aria-label={`Notifications (${pendingItems.length} pending)`}
+              className="relative rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            >
+              <BellIcon className={iconBase} />
+              {pendingItems.length > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
+                  {pendingItems.length}
+                </span>
+              )}
+            </button>
+
+            {isNotifOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+                <div className="border-b border-gray-100 px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-900">
+                    Notifications
+                  </p>
+                </div>
+                {pendingItems.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-sm text-slate-400">
+                    You&apos;re all caught up!
+                  </p>
+                ) : (
+                  <ul className="max-h-80 divide-y divide-gray-100 overflow-y-auto">
+                    {pendingItems.map((item) => (
+                      <li
+                        key={item.id}
+                        className="px-4 py-3 text-sm text-slate-600 transition-colors hover:bg-slate-50"
+                      >
+                        <span className="font-semibold text-amber-600">
+                          Action Required:
+                        </span>{' '}
+                        <span className="font-medium text-slate-900">
+                          {item.team}
+                        </span>{' '}
+                        submitted{' '}
+                        <span className="text-slate-700">
+                          {item.projectTitle}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
           <button
             type="button"
-            aria-label="Notifications"
-            className="relative rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-          >
-            <BellIcon className={iconBase} />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
-          </button>
-          <button
-            type="button"
+            onClick={() => setIsHelpOpen(true)}
             aria-label="Help"
             className="rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
@@ -375,6 +568,126 @@ function AdminLayout() {
           </div>
         </footer>
       </div>
+
+      {/* ---------- AI Admin Assistant drawer ---------- */}
+      <div
+        onClick={() => setIsAssistantOpen(false)}
+        aria-hidden={!isAssistantOpen}
+        className={`fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 ${
+          isAssistantOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="AI Admin Assistant"
+        className={`fixed inset-y-0 right-0 z-[70] flex w-full max-w-sm flex-col bg-white shadow-2xl transition-transform duration-300 ${
+          isAssistantOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <img
+              src="/cogniIcon.png"
+              alt="Cognizant Logo"
+              className="h-6 w-auto object-contain"
+            />
+            <h3 className="text-base font-bold text-slate-900">
+              Cognizant AI Navigator
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsAssistantOpen(false)}
+            aria-label="Close assistant"
+            className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+          >
+            <CloseIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-5">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex ${
+                message.sender === 'user' ? 'justify-end' : 'justify-start'
+              }`}
+            >
+              <div
+                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                  message.sender === 'user'
+                    ? 'rounded-tr-sm bg-blue-600 text-white'
+                    : 'rounded-tl-sm border border-gray-200 bg-white text-slate-700'
+                }`}
+              >
+                {message.text}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-gray-200 p-4">
+          <div className="flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-200">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(event) => setChatInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  handleSendMessage()
+                }
+              }}
+              placeholder="Ask Cognizant AI…"
+              className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleSendMessage}
+              className="text-xs font-semibold text-blue-600 transition-colors hover:text-blue-700"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ---------- Help & resources modal ---------- */}
+      {isHelpOpen && (
+        <div
+          onClick={() => setIsHelpOpen(false)}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Portal Help & Resources"
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <img src="/cogni.png" alt="Cognizant" className="mb-4 h-8 w-auto" />
+            <h3 className="text-xl font-bold text-slate-900">
+              Portal Help &amp; Resources
+            </h3>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              Welcome to the Cognizant Hackathon Admin Portal. Use this dashboard
+              to manage events, review project submissions, and utilize our AI
+              Navigator for automated scoring. For technical support, contact
+              internal IT.
+            </p>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsHelpOpen(false)}
+                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,42 +1,108 @@
-// Admin dashboard — overview with summary stat cards, a pure-Tailwind bar
-// chart (participants per hackathon), and a recent-activity timeline.
+// Admin dashboard — fully data-driven from the shared localStorage store:
+// summary metrics, a pure-Tailwind bar chart (participants per hackathon), and a
+// recent-activity feed derived from the actual submission data.
 
+import { useEffect, useState } from 'react'
 import StatCard from '../components/ui/StatCard'
 
-const STATS = [
-  { label: 'Active Hackathons', value: 3, accent: 'text-blue-600' },
-  { label: 'Total Participants', value: 142, accent: 'text-emerald-600' },
-  { label: 'Pending Submissions', value: 12, accent: 'text-amber-600' },
-]
+const STORAGE_KEY = 'shared_hackathon_data'
+const EVENTS_STORAGE_KEY = 'hackathon_events'
+const MEMBERS_PER_TEAM = 3
 
-const PARTICIPANTS_PER_HACKATHON = [
-  { name: 'AI Sprint', count: 120, max: 150 },
-  { name: 'FinTech Build', count: 85, max: 150 },
-  { name: 'Cloud Native', count: 40, max: 150 },
-]
+function loadSharedData() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) return JSON.parse(stored)
+  } catch {
+    // Corrupt/unreadable storage — fall through to empty.
+  }
+  return []
+}
 
-const RECENT_ACTIVITY = [
-  {
-    id: 1,
-    text: 'Team Alpha submitted their project',
-    time: '2 hours ago',
-    dot: 'bg-green-500',
-  },
-  {
-    id: 2,
-    text: 'Admin approved FinTech Build scores',
-    time: '5 hours ago',
-    dot: 'bg-blue-500',
-  },
-  {
-    id: 3,
-    text: 'New participant registered for Cloud Native',
-    time: 'Yesterday',
-    dot: 'bg-purple-500',
-  },
-]
+// Pulsing red alert dot for "action required" metrics.
+function PulseDot() {
+  return (
+    <span className="relative ml-2 inline-flex h-3 w-3 align-middle">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+      <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+    </span>
+  )
+}
+
+// Build a recent-activity feed from the real submission data.
+function buildActivity(data) {
+  return data
+    .map((item) => {
+      const status = item.status?.toUpperCase()
+      if (item.score !== null && item.score !== undefined) {
+        return { id: item.id, text: `Score assigned to ${item.team}`, dot: 'bg-green-500' }
+      }
+      if (status === 'PENDING') {
+        return { id: item.id, text: `New submission pending for ${item.projectTitle}`, dot: 'bg-amber-500' }
+      }
+      if (status === 'APPROVED') {
+        return { id: item.id, text: `${item.team} approved for scoring`, dot: 'bg-blue-500' }
+      }
+      if (status === 'REJECTED') {
+        return { id: item.id, text: `${item.team}'s submission was rejected`, dot: 'bg-red-500' }
+      }
+      return { id: item.id, text: `${item.team} registered`, dot: 'bg-slate-400' }
+    })
+    .slice(0, 5)
+}
 
 function AdminDashboard() {
+  const [data] = useState(loadSharedData)
+  // Hackathon events are the single source of truth for "Active Hackathons".
+  const [events, setEvents] = useState([])
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(EVENTS_STORAGE_KEY)
+      setEvents(stored ? JSON.parse(stored) : [])
+    } catch {
+      setEvents([])
+    }
+  }, [])
+
+  const uniqueHackathons = [...new Set(data.map((d) => d.hackathon).filter(Boolean))]
+  const uniqueTeams = [...new Set(data.map((d) => d.team).filter(Boolean))]
+
+  // Count only events explicitly marked ACTIVE (from 'hackathon_events').
+  const activeHackathons = events.filter(
+    (event) => event.status?.toUpperCase() === 'ACTIVE',
+  ).length
+  const totalParticipants = uniqueTeams.length * MEMBERS_PER_TEAM
+  const pendingCount = data.filter(
+    (d) => d.status?.toUpperCase() === 'PENDING',
+  ).length
+
+  // Participants per hackathon = (teams in that hackathon) × members per team.
+  const participantsPerHackathon = uniqueHackathons.map((name) => {
+    const teams = new Set(
+      data.filter((d) => d.hackathon === name).map((d) => d.team),
+    )
+    return { name, count: teams.size * MEMBERS_PER_TEAM }
+  })
+  const maxCount = Math.max(...participantsPerHackathon.map((p) => p.count), 1)
+
+  const recentActivity = buildActivity(data)
+
+  const stats = [
+    { title: 'Active Hackathons', value: activeHackathons, accent: 'text-blue-600' },
+    { title: 'Total Participants', value: totalParticipants, accent: 'text-emerald-600' },
+    {
+      title: 'Pending Submissions',
+      value: (
+        <span className="inline-flex items-center">
+          {pendingCount}
+          {pendingCount > 0 && <PulseDot />}
+        </span>
+      ),
+      accent: 'text-amber-600',
+    },
+  ]
+
   return (
     <div>
       <div className="mb-6">
@@ -48,10 +114,10 @@ function AdminDashboard() {
 
       {/* Top-level metrics */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {STATS.map((stat) => (
+        {stats.map((stat) => (
           <StatCard
-            key={stat.label}
-            title={stat.label}
+            key={stat.title}
+            title={stat.title}
             value={stat.value}
             accent={stat.accent}
           />
@@ -65,24 +131,30 @@ function AdminDashboard() {
           <h3 className="mb-5 text-lg font-semibold text-slate-900">
             Participants per Hackathon
           </h3>
-          <div className="space-y-5">
-            {PARTICIPANTS_PER_HACKATHON.map((item) => (
-              <div key={item.name}>
-                <div className="mb-1.5 flex items-center justify-between text-sm">
-                  <span className="font-medium text-slate-700">{item.name}</span>
-                  <span className="tabular-nums text-slate-500">
-                    {item.count}
-                  </span>
+          {participantsPerHackathon.length === 0 ? (
+            <p className="text-sm text-slate-400">No hackathon data yet.</p>
+          ) : (
+            <div className="space-y-5">
+              {participantsPerHackathon.map((item) => (
+                <div key={item.name}>
+                  <div className="mb-1.5 flex items-center justify-between text-sm">
+                    <span className="font-medium text-slate-700">
+                      {item.name}
+                    </span>
+                    <span className="tabular-nums text-slate-500">
+                      {item.count}
+                    </span>
+                  </div>
+                  <div className="h-4 w-full rounded-full bg-slate-100">
+                    <div
+                      className="h-4 rounded-full bg-blue-600 transition-all duration-700 ease-out"
+                      style={{ width: `${(item.count / maxCount) * 100}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-4 w-full rounded-full bg-slate-100">
-                  <div
-                    className="h-4 rounded-full bg-blue-600 transition-all duration-700 ease-out"
-                    style={{ width: `${(item.count / item.max) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Recent activity timeline */}
@@ -90,17 +162,20 @@ function AdminDashboard() {
           <h3 className="mb-5 text-lg font-semibold text-slate-900">
             Recent Activity
           </h3>
-          <ol className="relative ml-2 border-l-2 border-slate-200">
-            {RECENT_ACTIVITY.map((event) => (
-              <li key={event.id} className="relative mb-6 pl-6 last:mb-0">
-                <span
-                  className={`absolute -left-[7px] top-1 h-3 w-3 rounded-full ring-2 ring-white ${event.dot}`}
-                />
-                <p className="text-sm text-slate-700">{event.text}</p>
-                <p className="mt-0.5 text-xs text-slate-400">{event.time}</p>
-              </li>
-            ))}
-          </ol>
+          {recentActivity.length === 0 ? (
+            <p className="text-sm text-slate-400">No recent activity.</p>
+          ) : (
+            <ol className="relative ml-2 border-l-2 border-slate-200">
+              {recentActivity.map((event) => (
+                <li key={event.id} className="relative mb-6 pl-6 last:mb-0">
+                  <span
+                    className={`absolute -left-[7px] top-1 h-3 w-3 rounded-full ring-2 ring-white ${event.dot}`}
+                  />
+                  <p className="text-sm text-slate-700">{event.text}</p>
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
       </div>
     </div>

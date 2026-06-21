@@ -1,16 +1,34 @@
-// Hackathon list — Skillspring light table with status pills, expandable
-// (accordion) detail rows, and a custom delete-confirmation modal.
-// Data is read from the hackathon service.
+// Manage Hackathons — the single source of truth for hackathon EVENTS, persisted
+// to localStorage under 'hackathon_events'. Lazy-init from storage (seed on first
+// run), save on every change. Skillspring light table with status pills, an
+// expandable detail row, and a custom delete-confirmation modal.
 
-import { Fragment, useCallback, useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getHackathons, deleteHackathon } from '../services/hackathonService'
 import Button from '../components/ui/Button'
 
+const STORAGE_KEY = 'hackathon_events'
+
+const SEED_EVENTS = [
+  { id: 1, title: 'AI Innovation Sprint', startDate: '2026-07-01', endDate: '2026-07-03', status: 'ACTIVE' },
+  { id: 2, title: 'FinTech Build Weekend', startDate: '2026-08-15', endDate: '2026-08-17', status: 'UPCOMING' },
+  { id: 3, title: 'Cloud Native Challenge', startDate: '2026-05-09', endDate: '2026-05-11', status: 'ACTIVE' },
+  { id: 4, title: 'Technoverse hackathon', startDate: '2026-06-26', endDate: '2026-07-10', status: 'UPCOMING' },
+]
+
+// Read events from localStorage, falling back to the seed if absent/corrupt.
+function loadEvents() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) return JSON.parse(stored)
+  } catch {
+    // Corrupt/unreadable storage — fall through to the seed.
+  }
+  return SEED_EVENTS
+}
+
 // Skillspring status pill — case-insensitive with three distinct tones:
-// green for Active, blue for Upcoming, gray for Completed (matching the form's
-// dropdown indicator). Normalizing protects against data-casing differences
-// (seeds vs. form input vs. the future REST API).
+// green for Active, blue for Upcoming, gray for Completed.
 function StatusBadge({ status }) {
   const normalizedStatus = status?.toUpperCase() || ''
 
@@ -72,35 +90,15 @@ function WarningTriangleIcon({ className }) {
 
 function HackathonList() {
   const navigate = useNavigate()
-  const [hackathons, setHackathons] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [deletingId, setDeletingId] = useState(null)
+  const [hackathons, setHackathons] = useState(loadEvents)
   const [expandedRowId, setExpandedRowId] = useState(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [hackathonToDelete, setHackathonToDelete] = useState(null)
 
-  const isDeleting = deletingId !== null
-
-  const loadHackathons = useCallback(async () => {
-    const data = await getHackathons()
-    setHackathons(data)
-  }, [])
-
+  // Persist events on every change (single source of truth).
   useEffect(() => {
-    let active = true
-    async function init() {
-      try {
-        const data = await getHackathons()
-        if (active) setHackathons(data)
-      } finally {
-        if (active) setLoading(false)
-      }
-    }
-    init()
-    return () => {
-      active = false
-    }
-  }, [])
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(hackathons))
+  }, [hackathons])
 
   const toggleRow = (id) => {
     setExpandedRowId((prev) => (prev === id ? null : id))
@@ -112,26 +110,19 @@ function HackathonList() {
   }
 
   const closeDeleteModal = () => {
-    if (isDeleting) return
     setIsDeleteModalOpen(false)
     setHackathonToDelete(null)
   }
 
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
     if (!hackathonToDelete) return
-    setDeletingId(hackathonToDelete.id)
-    try {
-      await deleteHackathon(hackathonToDelete.id)
-      // Re-fetch so the table reflects the updated store.
-      await loadHackathons()
-      setIsDeleteModalOpen(false)
-      setHackathonToDelete(null)
-    } finally {
-      setDeletingId(null)
-    }
+    setHackathons((prev) =>
+      prev.filter((hackathon) => hackathon.id !== hackathonToDelete.id),
+    )
+    closeDeleteModal()
   }
 
-  // Close the modal on Escape (unless a deletion is in flight).
+  // Close the modal on Escape.
   useEffect(() => {
     if (!isDeleteModalOpen) return
     function handleKey(event) {
@@ -139,8 +130,7 @@ function HackathonList() {
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDeleteModalOpen, isDeleting])
+  }, [isDeleteModalOpen])
 
   return (
     <div>
@@ -158,14 +148,9 @@ function HackathonList() {
         </Button>
       </div>
 
-      {loading ? (
-        <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-sm font-medium text-slate-500 shadow-sm">
-          Loading hackathons…
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-          <div className="w-full overflow-x-auto rounded-lg">
-            <table className="w-full min-w-[800px] border-collapse text-left text-sm">
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="w-full overflow-x-auto rounded-lg">
+          <table className="w-full min-w-[800px] border-collapse text-left text-sm">
             <thead className="border-b border-gray-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-6 py-3">Title</th>
@@ -176,86 +161,93 @@ function HackathonList() {
               </tr>
             </thead>
             <tbody>
-              {hackathons.map((hackathon) => {
-                const isExpanded = expandedRowId === hackathon.id
+              {hackathons.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">
+                    No hackathon events yet.
+                  </td>
+                </tr>
+              ) : (
+                hackathons.map((hackathon) => {
+                  const isExpanded = expandedRowId === hackathon.id
 
-                return (
-                  <Fragment key={hackathon.id}>
-                    <tr
-                      className={`transition-colors hover:bg-slate-50 ${
-                        isExpanded ? '' : 'border-b border-gray-100'
-                      }`}
-                    >
-                      <td className="px-6 py-4 font-medium text-slate-900">
-                        <button
-                          type="button"
-                          onClick={() => toggleRow(hackathon.id)}
-                          aria-expanded={isExpanded}
-                          className="flex items-center gap-2 text-left transition-colors hover:text-blue-600"
-                        >
-                          <Chevron expanded={isExpanded} />
-                          {hackathon.title}
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 tabular-nums">
-                        {hackathon.startDate}
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 tabular-nums">
-                        {hackathon.endDate}
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={hackathon.status} />
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() =>
-                              navigate(`/hackathons/edit/${hackathon.id}`)
-                            }
+                  return (
+                    <Fragment key={hackathon.id}>
+                      <tr
+                        className={`transition-colors hover:bg-slate-50 ${
+                          isExpanded ? '' : 'border-b border-gray-100'
+                        }`}
+                      >
+                        <td className="px-6 py-4 font-medium text-slate-900">
+                          <button
+                            type="button"
+                            onClick={() => toggleRow(hackathon.id)}
+                            aria-expanded={isExpanded}
+                            className="flex items-center gap-2 text-left transition-colors hover:text-blue-600"
                           >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            onClick={() => openDeleteModal(hackathon)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {isExpanded && (
-                      <tr className="border-b border-gray-100">
-                        <td colSpan={5} className="px-6 pb-4">
-                          <div className="rounded-xl border border-gray-100 bg-slate-50 p-4">
-                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                              Description
-                            </p>
-                            <p className="text-sm text-slate-600">
-                              {hackathon.description ? (
-                                hackathon.description
-                              ) : (
-                                <span className="italic text-gray-400">
-                                  No description provided.
-                                </span>
-                              )}
-                            </p>
+                            <Chevron expanded={isExpanded} />
+                            {hackathon.title}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 text-slate-600 tabular-nums">
+                          {hackathon.startDate}
+                        </td>
+                        <td className="px-6 py-4 text-slate-600 tabular-nums">
+                          {hackathon.endDate}
+                        </td>
+                        <td className="px-6 py-4">
+                          <StatusBadge status={hackathon.status} />
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() =>
+                                navigate(`/hackathons/edit/${hackathon.id}`)
+                              }
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => openDeleteModal(hackathon)}
+                            >
+                              Delete
+                            </Button>
                           </div>
                         </td>
                       </tr>
-                    )}
-                  </Fragment>
-                )
-              })}
+
+                      {isExpanded && (
+                        <tr className="border-b border-gray-100">
+                          <td colSpan={5} className="px-6 pb-4">
+                            <div className="rounded-xl border border-gray-100 bg-slate-50 p-4">
+                              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                Description
+                              </p>
+                              <p className="text-sm text-slate-600">
+                                {hackathon.description ? (
+                                  hackathon.description
+                                ) : (
+                                  <span className="italic text-gray-400">
+                                    No description provided.
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })
+              )}
             </tbody>
-            </table>
-          </div>
+          </table>
         </div>
-      )}
+      </div>
 
       {/* ---------- Delete confirmation modal ---------- */}
       {isDeleteModalOpen && (
@@ -310,18 +302,16 @@ function HackathonList() {
               <button
                 type="button"
                 onClick={closeDeleteModal}
-                disabled={isDeleting}
-                className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmDelete}
-                disabled={isDeleting}
-                className="rounded-xl bg-red-600 px-5 py-2.5 font-medium text-white shadow-sm shadow-red-600/30 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-xl bg-red-600 px-5 py-2.5 font-medium text-white shadow-sm shadow-red-600/30 hover:bg-red-700"
               >
-                {isDeleting ? 'Deleting…' : 'Delete'}
+                Delete
               </button>
             </div>
           </div>
