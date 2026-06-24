@@ -73,6 +73,19 @@ const CloseIcon = (props) => (
   </svg>
 )
 
+const PaperclipIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+  </svg>
+)
+
+const SendIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <line x1="12" y1="19" x2="12" y2="5" />
+    <polyline points="5 12 12 5 19 12" />
+  </svg>
+)
+
 const DashboardIcon = (props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
     <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -140,6 +153,65 @@ const LogoutIcon = (props) => (
   </svg>
 )
 
+const SettingsIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </svg>
+)
+
+const KeyIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <circle cx="7.5" cy="15.5" r="5.5" />
+    <path d="m21 2-9.6 9.6" />
+    <path d="m15.5 7.5 3 3L22 7l-3-3" />
+  </svg>
+)
+
+const BookIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+  </svg>
+)
+
+const CpuIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <rect x="4" y="4" width="16" height="16" rx="2" />
+    <rect x="9" y="9" width="6" height="6" />
+    <line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" />
+    <line x1="9" y1="20" x2="9" y2="23" /><line x1="15" y1="20" x2="15" y2="23" />
+    <line x1="20" y1="9" x2="23" y2="9" /><line x1="20" y1="14" x2="23" y2="14" />
+    <line x1="1" y1="9" x2="4" y2="9" /><line x1="1" y1="14" x2="4" y2="14" />
+  </svg>
+)
+
+const MailIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <path d="m22 7-10 5L2 7" />
+  </svg>
+)
+
+const ActivityIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+  </svg>
+)
+
+const ArrowUpRightIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <line x1="7" y1="17" x2="17" y2="7" />
+    <polyline points="7 7 17 7 17 17" />
+  </svg>
+)
+
+const ChevronRightIcon = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+)
+
 /* ------------------------------ Nav config ------------------------------ */
 
 const NAV_ITEMS = [
@@ -166,6 +238,44 @@ function getInitials(email) {
   return local.slice(0, 2).toUpperCase()
 }
 
+// Starter prompts shown under the assistant's welcome message.
+const AI_SUGGESTIONS = [
+  'Analyze Star Team Builder metrics',
+  'Summarize pending submissions',
+  'Export the leaderboard',
+]
+
+// Mock activity-feed notifications shown in the bell dropdown.
+const NOTIFICATIONS = [
+  {
+    id: 1,
+    title: 'Neural Ninjas',
+    description: 'Submitted a new project to the Star Team Builder track.',
+    time: '12 minutes ago',
+    unread: true,
+    Icon: SubmissionsIcon,
+    tone: 'bg-blue-100 text-blue-600',
+  },
+  {
+    id: 2,
+    title: 'Grading Alert',
+    description: '3 approved submissions are awaiting your score in Score Management.',
+    time: '1 hour ago',
+    unread: true,
+    Icon: AwardIcon,
+    tone: 'bg-amber-100 text-amber-600',
+  },
+  {
+    id: 3,
+    title: 'System',
+    description: 'Leaderboard export completed successfully.',
+    time: 'Yesterday',
+    unread: false,
+    Icon: BellIcon,
+    tone: 'bg-slate-100 text-slate-500',
+  },
+]
+
 /* ------------------------------ Layout ------------------------------ */
 
 function AdminLayout() {
@@ -188,6 +298,7 @@ function AdminLayout() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isAssistantOpen, setIsAssistantOpen] = useState(false)
   const [isNotifOpen, setIsNotifOpen] = useState(false)
+  const [notifications, setNotifications] = useState(NOTIFICATIONS)
   const [isHelpOpen, setIsHelpOpen] = useState(false)
   const [pendingItems, setPendingItems] = useState([])
   const notifRef = useRef(null)
@@ -245,6 +356,20 @@ function AdminLayout() {
         },
       ])
     }, 1500)
+  }
+
+  // Open the AI Navigator with the scoring rubric (triggered from Help center).
+  const showScoringRubric = () => {
+    setIsHelpOpen(false)
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: messageIdRef.current++,
+        sender: 'ai',
+        text: 'Scoring rubric: each approved submission is graded on Innovation, Technical Complexity, UI/UX, and Business Value (0–25 points each, 100 total). Open Score Management to run an AI-assisted evaluation.',
+      },
+    ])
+    setIsAssistantOpen(true)
   }
 
   // Close the user menu on outside click or Escape.
@@ -404,38 +529,99 @@ function AdminLayout() {
               )}
             </button>
 
+            {/* Centered notification inbox modal */}
             {isNotifOpen && (
-              <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-                <div className="border-b border-gray-100 px-4 py-3">
-                  <p className="text-sm font-semibold text-slate-900">
-                    Notifications
-                  </p>
-                </div>
-                {pendingItems.length === 0 ? (
-                  <p className="px-4 py-6 text-center text-sm text-slate-400">
-                    You&apos;re all caught up!
-                  </p>
-                ) : (
-                  <ul className="max-h-80 divide-y divide-gray-100 overflow-y-auto">
-                    {pendingItems.map((item) => (
-                      <li
-                        key={item.id}
-                        className="px-4 py-3 text-sm text-slate-600 transition-colors hover:bg-slate-50"
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+                {/* Clickable background overlay */}
+                <div
+                  onClick={() => setIsNotifOpen(false)}
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity"
+                />
+
+                {/* Modal container — soft glass */}
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Notifications"
+                  className="relative flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/50 bg-white/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] backdrop-blur-xl"
+                >
+                  {/* Header */}
+                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/50 p-5">
+                    <h2 className="text-lg font-bold text-slate-800">
+                      Notifications
+                    </h2>
+                    <div className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNotifications((prev) =>
+                            prev.map((n) => ({ ...n, unread: false })),
+                          )
+                        }
+                        className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-blue-600 transition-colors hover:text-blue-800"
                       >
-                        <span className="font-semibold text-amber-600">
-                          Action Required:
-                        </span>{' '}
-                        <span className="font-medium text-slate-900">
-                          {item.team}
-                        </span>{' '}
-                        submitted{' '}
-                        <span className="text-slate-700">
-                          {item.projectTitle}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                        Mark all as read
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsNotifOpen(false)}
+                        aria-label="Close notifications"
+                        className="rounded-full p-2 text-slate-400 transition-all hover:bg-slate-200 hover:text-slate-600"
+                      >
+                        <CloseIcon className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Scrollable list */}
+                  <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden">
+                    {notifications.map((item) => {
+                      const Icon = item.Icon
+                      return (
+                        <div
+                          key={item.id}
+                          className={`group flex cursor-pointer items-start gap-3 border-b border-l-4 border-slate-100 p-4 transition-colors last:border-b-0 ${
+                            item.unread
+                              ? 'border-l-blue-500 bg-gradient-to-r from-blue-50/50 to-transparent'
+                              : 'border-l-transparent bg-transparent hover:bg-slate-50'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${item.tone}`}
+                          >
+                            <Icon className="h-5 w-5" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-slate-900">
+                              {item.title}
+                            </p>
+                            <p className="mt-0.5 line-clamp-2 text-[13px] leading-relaxed text-slate-500">
+                              {item.description}
+                            </p>
+                            <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-tight text-slate-400">
+                              {item.unread && (
+                                <span className="h-2 w-2 rounded-full bg-blue-500" />
+                              )}
+                              {item.time}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Premium footer action */}
+                  <div className="mt-auto rounded-b-2xl border-t border-slate-100 bg-slate-50/50 p-4">
+                    <button
+                      type="button"
+                      className="flex w-full cursor-pointer items-center justify-center gap-2 text-sm font-medium text-slate-600 transition-all hover:text-blue-600"
+                    >
+                      View all activity
+                      <ChevronRightIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -458,28 +644,65 @@ function AdminLayout() {
               {getInitials(adminEmail)}
             </button>
 
-            {isUserMenuOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
-              >
-                <div className="border-b border-gray-100 px-4 py-2">
-                  <p className="text-xs text-slate-500">Signed in as</p>
+            <div
+              role="menu"
+              aria-hidden={!isUserMenuOpen}
+              className={`absolute right-0 top-[calc(100%+0.5rem)] z-50 w-72 origin-top-right overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] backdrop-blur-xl transition-all duration-200 ease-out ${
+                isUserMenuOpen
+                  ? 'scale-100 opacity-100'
+                  : 'pointer-events-none scale-95 opacity-0'
+              }`}
+            >
+              {/* Profile header */}
+              <div className="flex items-center gap-3 rounded-t-2xl border-b border-slate-100 bg-slate-50/50 p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
+                  {getInitials(adminEmail)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Administrator
+                  </p>
                   <p className="truncate text-sm font-semibold text-slate-900">
                     {adminEmail || 'admin@cognizant.com'}
                   </p>
                 </div>
+              </div>
+
+              {/* Menu items */}
+              <div className="flex flex-col gap-1 p-2">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => setIsUserMenuOpen(false)}
+                  className="group flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <SettingsIcon className="h-4 w-4 text-slate-400 group-hover:text-slate-600" />
+                  Profile Settings
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => setIsUserMenuOpen(false)}
+                  className="group flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <KeyIcon className="h-4 w-4 text-slate-400 group-hover:text-slate-600" />
+                  API Keys
+                </button>
+
+                {/* Divider */}
+                <div className="mx-2 my-1 h-px bg-slate-100" />
+
                 <button
                   type="button"
                   role="menuitem"
                   onClick={handleLogout}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-red-50 hover:text-red-600"
+                  className="group flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-700"
                 >
-                  <LogoutIcon className="h-4 w-4" />
+                  <LogoutIcon className="h-4 w-4 text-slate-400 group-hover:text-red-500" />
                   Logout
                 </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </header>
@@ -585,7 +808,7 @@ function AdminLayout() {
           isAssistantOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 shadow-sm">
           <div className="flex items-center gap-2">
             <img
               src="/cogniIcon.png"
@@ -606,29 +829,57 @@ function AdminLayout() {
           </button>
         </div>
 
-        <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-5">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${
-                message.sender === 'user' ? 'justify-end' : 'justify-start'
-              }`}
-            >
-              <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
-                  message.sender === 'user'
-                    ? 'rounded-tr-sm bg-blue-600 text-white'
-                    : 'rounded-tl-sm border border-gray-200 bg-white text-slate-700'
-                }`}
-              >
-                {message.text}
-              </div>
+        <div className="flex-1 space-y-8 overflow-y-auto bg-white p-5">
+          {messages.map((message, index) => (
+            <div key={message.id}>
+              {message.sender === 'user' ? (
+                <div className="flex justify-end">
+                  <div className="max-w-[85%] rounded-2xl bg-slate-100 px-4 py-3 text-[14px] leading-relaxed text-slate-800">
+                    {message.text}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex max-w-[92%] items-start gap-3">
+                  {/* AI — clean logo on the white bg, no container/background */}
+                  <img
+                    src="/cogniIcon.png"
+                    alt="Cognizant AI"
+                    className="mt-0.5 h-6 w-6 shrink-0 object-contain"
+                  />
+                  <p className="text-[14px] leading-relaxed text-slate-800">
+                    {message.text}
+                  </p>
+                </div>
+              )}
+
+              {/* Quick suggestion pills under the welcome message */}
+              {index === 0 && message.sender === 'ai' && (
+                <div className="mt-2 flex flex-row flex-wrap gap-2 pl-9">
+                  {AI_SUGGESTIONS.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => setChatInput(suggestion)}
+                      className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] text-slate-600 shadow-sm transition-all hover:border-blue-300 hover:bg-slate-50 hover:text-blue-600 cursor-pointer"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
 
-        <div className="border-t border-gray-200 p-4">
-          <div className="flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-200">
+        <div className="bg-white px-4 pb-5 pt-3">
+          <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1.5 pl-3 pr-1.5 shadow-md focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-200">
+            <button
+              type="button"
+              aria-label="Attach file"
+              className="shrink-0 text-slate-400 transition-colors hover:text-slate-600"
+            >
+              <PaperclipIcon className="h-5 w-5" />
+            </button>
             <input
               type="text"
               value={chatInput}
@@ -645,9 +896,10 @@ function AdminLayout() {
             <button
               type="button"
               onClick={handleSendMessage}
-              className="text-xs font-semibold text-blue-600 transition-colors hover:text-blue-700"
+              aria-label="Send message"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
             >
-              Send
+              <SendIcon className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -662,29 +914,103 @@ function AdminLayout() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Portal Help & Resources"
+            aria-label="Help & Resources"
             onClick={(event) => event.stopPropagation()}
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white/95 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] ring-1 ring-slate-900/5 backdrop-blur-2xl"
           >
-            <img src="/cogni.png" alt="Cognizant" className="mb-4 h-8 w-auto" />
-            <h3 className="text-xl font-bold text-slate-900">
-              Portal Help &amp; Resources
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-slate-600">
-              Welcome to the Cognizant Hackathon Admin Portal. Use this dashboard
-              to manage events, review project submissions, and utilize our AI
-              Navigator for automated scoring. For technical support, contact
-              internal IT.
-            </p>
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setIsHelpOpen(false)}
-                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
-              >
-                Close
-              </button>
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setIsHelpOpen(false)}
+              aria-label="Close"
+              className="absolute right-4 top-4 rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            >
+              <CloseIcon className="h-5 w-5" />
+            </button>
+
+            {/* Centered brand header */}
+            <div className="flex flex-col items-center justify-center pb-4 pt-8">
+              <img
+                src="/cogni.png"
+                alt="Cognizant"
+                className="mb-4 h-auto w-32 object-contain"
+              />
+              <h2 className="mb-2 text-2xl font-bold text-slate-900">
+                Help &amp; Resources
+              </h2>
+              <p className="mb-8 max-w-sm px-4 text-center text-slate-500">
+                Everything you need to run the portal — guides, evaluation
+                standards, and support.
+              </p>
             </div>
+
+            {/* Cards */}
+            <div className="grid grid-cols-2 gap-4 px-6 pb-8">
+                {/* Admin Quickstart → docs in a new tab */}
+                <button
+                  type="button"
+                  onClick={() => window.open('/docs', '_blank')}
+                  className="group relative flex cursor-pointer flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:border-blue-300 hover:bg-slate-50 active:scale-[0.98]"
+                >
+                  <ArrowUpRightIcon className="absolute right-3 top-3 h-4 w-4 text-slate-300 transition-colors group-hover:text-blue-500" />
+                  <BookIcon className="mb-1 h-5 w-5 text-blue-600" />
+                  <span className="font-semibold text-slate-900">
+                    Admin Quickstart
+                  </span>
+                  <span className="text-sm text-slate-500">
+                    Guides to get up and running
+                  </span>
+                </button>
+
+                {/* Scoring & ML Guidelines → AI Navigator rubric */}
+                <button
+                  type="button"
+                  onClick={showScoringRubric}
+                  className="group relative flex cursor-pointer flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:border-blue-300 hover:bg-slate-50 active:scale-[0.98]"
+                >
+                  <ArrowUpRightIcon className="absolute right-3 top-3 h-4 w-4 text-slate-300 transition-colors group-hover:text-blue-500" />
+                  <CpuIcon className="mb-1 h-5 w-5 text-blue-600" />
+                  <span className="font-semibold text-slate-900">
+                    Scoring &amp; ML Guidelines
+                  </span>
+                  <span className="text-sm text-slate-500">
+                    How AI-assisted scoring works
+                  </span>
+                </button>
+
+                {/* System Status → live indicator */}
+                <button
+                  type="button"
+                  className="group relative flex cursor-pointer flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:border-blue-300 hover:bg-slate-50 active:scale-[0.98]"
+                >
+                  <ActivityIcon className="mb-1 h-5 w-5 text-blue-600" />
+                  <span className="font-semibold text-slate-900">
+                    System Status
+                  </span>
+                  <span className="flex items-center gap-1.5 text-sm text-slate-500">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                    </span>
+                    All systems operational
+                  </span>
+                </button>
+
+                {/* Contact Internal IT → mailto */}
+                <a
+                  href="mailto:support@cognizant.com"
+                  className="group relative flex cursor-pointer flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:border-blue-300 hover:bg-slate-50 active:scale-[0.98]"
+                >
+                  <ArrowUpRightIcon className="absolute right-3 top-3 h-4 w-4 text-slate-300 transition-colors group-hover:text-blue-500" />
+                  <MailIcon className="mb-1 h-5 w-5 text-blue-600" />
+                  <span className="font-semibold text-slate-900">
+                    Contact Internal IT
+                  </span>
+                  <span className="text-sm text-slate-500">
+                    Report an issue or get support
+                  </span>
+                </a>
+              </div>
           </div>
         </div>
       )}
