@@ -1,19 +1,8 @@
-// Teams — data-driven table of teams from the shared store, showing each team's
-// hackathon and current review status.
+// Teams — data-driven table of teams from the backend (GET /api/teams), showing
+// each team's hackathon and current review status.
 
-import { useState } from 'react'
-
-const STORAGE_KEY = 'shared_hackathon_data'
-
-function loadSharedData() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) return JSON.parse(stored)
-  } catch {
-    // Corrupt/unreadable storage — fall through to empty.
-  }
-  return []
-}
+import { useEffect, useState } from 'react'
+import axiosClient from '../api/axiosClient'
 
 // Case-insensitive status pill: green Approved, amber Pending, red Rejected.
 function StatusBadge({ status }) {
@@ -38,7 +27,27 @@ function StatusBadge({ status }) {
 }
 
 function TeamsList() {
-  const [teams] = useState(loadSharedData)
+  const [teams, setTeams] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    axiosClient
+      .get('/api/teams')
+      .then((res) => {
+        if (active) setTeams(res.data)
+      })
+      .catch(() => {
+        if (active) setError('Failed to load teams. Please try again.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   return (
     <div>
@@ -60,7 +69,19 @@ function TeamsList() {
               </tr>
             </thead>
             <tbody>
-              {teams.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={3} className="px-6 py-12 text-center text-sm text-slate-500">
+                    Loading teams…
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={3} className="px-6 py-12 text-center text-sm font-medium text-red-600">
+                    {error}
+                  </td>
+                </tr>
+              ) : teams.length === 0 ? (
                 <tr>
                   <td
                     colSpan={3}

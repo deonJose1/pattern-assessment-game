@@ -1,26 +1,12 @@
-// Admin dashboard — fully data-driven from the shared localStorage store:
-// summary metrics, a pure-Tailwind bar chart (participants per hackathon), and a
-// recent-activity feed derived from the actual submission data.
-//
-// NOTE: the data engine below (loadSharedData, buildActivity, state, and all
-// computed values) is intentionally preserved as-is — only the UI is enhanced.
+// Admin dashboard — fully data-driven from the backend: summary metrics derived
+// from the live submissions array, a pure-Tailwind bar chart (participants per
+// hackathon), and a recent-activity feed built from the same submission data.
 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import axiosClient from '../api/axiosClient'
 
-const STORAGE_KEY = 'shared_hackathon_data'
-const EVENTS_STORAGE_KEY = 'hackathon_events'
 const MEMBERS_PER_TEAM = 3
-
-function loadSharedData() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) return JSON.parse(stored)
-  } catch {
-    // Corrupt/unreadable storage — fall through to empty.
-  }
-  return []
-}
 
 // Pulsing red alert dot for "action required" metrics.
 function PulseDot() {
@@ -95,14 +81,6 @@ function ClockIcon({ className }) {
   )
 }
 
-function TrendUpIcon({ className }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
-      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" />
-    </svg>
-  )
-}
-
 function DownloadIcon({ className }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
@@ -112,30 +90,39 @@ function DownloadIcon({ className }) {
 }
 
 function AdminDashboard() {
-  const [data] = useState(loadSharedData)
-  // Hackathon events are the single source of truth for "Active Hackathons".
-  const [events, setEvents] = useState([])
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const navigate = useNavigate()
 
+  // Fetch live submissions once on mount; every metric below derives from this.
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(EVENTS_STORAGE_KEY)
-      setEvents(stored ? JSON.parse(stored) : [])
-    } catch {
-      setEvents([])
+    let active = true
+    axiosClient
+      .get('/admin/submissions')
+      .then((res) => {
+        if (active) setData(res.data)
+      })
+      .catch(() => {
+        if (active) setError('Failed to load dashboard data. Please try again.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
     }
   }, [])
 
   const uniqueHackathons = [...new Set(data.map((d) => d.hackathon).filter(Boolean))]
-  const uniqueTeams = [...new Set(data.map((d) => d.team).filter(Boolean))]
 
-  // Count only events explicitly marked ACTIVE (from 'hackathon_events').
-  const activeHackathons = events.filter(
-    (event) => event.status?.toUpperCase() === 'ACTIVE',
-  ).length
-  const totalParticipants = uniqueTeams.length * MEMBERS_PER_TEAM
+  // --- Stat-card metrics, all derived directly from the live submissions array ---
+  const totalSubmissions = data.length
   const pendingCount = data.filter(
     (d) => d.status?.toUpperCase() === 'PENDING',
+  ).length
+  const scoredCount = data.filter(
+    (d) => d.score !== null && d.score !== undefined,
   ).length
 
   // Participants per hackathon = (teams in that hackathon) × members per team.
@@ -150,23 +137,21 @@ function AdminDashboard() {
   const recentActivity = buildActivity(data)
 
   const stats = [
-    { title: 'Active Hackathons', value: activeHackathons, accent: 'text-blue-600', trend: '+12%', Icon: TrophyIcon },
-    { title: 'Total Participants', value: totalParticipants, accent: 'text-emerald-600', trend: '+8%', Icon: UsersIcon },
+    { title: 'Total Submissions', value: totalSubmissions, Icon: UsersIcon },
     {
-      title: 'Pending Submissions',
+      title: 'Pending Reviews',
       value: (
         <span className="inline-flex items-center">
           {pendingCount}
           {pendingCount > 0 && <PulseDot />}
         </span>
       ),
-      accent: 'text-amber-600',
-      trend: '+3%',
       Icon: ClockIcon,
     },
+    { title: 'Scored', value: scoredCount, Icon: TrophyIcon },
   ]
 
-  // Export the participants-per-hackathon metrics as a CSV (reads existing data).
+  // Export the participants-per-hackathon metrics as a CSV (reads live data).
   const handleExportCSV = () => {
     const headers = ['Hackathon', 'Participants']
     const rows = participantsPerHackathon.map(
@@ -194,7 +179,7 @@ function AdminDashboard() {
             Overview of hackathon activity across the portal.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={handleExportCSV}
@@ -213,101 +198,109 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* Smart metric cards */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {stats.map((stat) => {
-          const Icon = stat.Icon
-          return (
-            <div
-              key={stat.title}
-              className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-6 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-            >
-              {/* Faint decorative background icon */}
-              <Icon className="pointer-events-none absolute -right-4 -top-4 h-28 w-28 text-slate-100 transition-transform duration-300 group-hover:scale-110" />
-
-              <div className="relative">
-                <p className="text-sm font-medium text-slate-500">{stat.title}</p>
-                <div className="mt-2 flex items-end gap-3">
-                  <span className="text-4xl font-bold tabular-nums text-slate-800">
-                    {stat.value}
-                  </span>
-                  <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">
-                    <TrendUpIcon className="h-3 w-3" />
-                    {stat.trend}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Chart + activity feed — stacked on mobile, side-by-side on desktop */}
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Bar chart */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-md">
-          <h3 className="mb-5 text-lg font-semibold text-slate-900">
-            Participants per Hackathon
-          </h3>
-          {participantsPerHackathon.length === 0 ? (
-            <p className="text-sm text-slate-400">No hackathon data yet.</p>
-          ) : (
-            <div className="space-y-5">
-              {participantsPerHackathon.map((item) => (
-                <div key={item.name}>
-                  <div className="mb-1.5 flex items-center justify-between text-sm">
-                    <span className="font-medium text-slate-700">
-                      {item.name}
-                    </span>
-                    <span className="tabular-nums text-slate-500">
-                      {item.count}
-                    </span>
-                  </div>
-                  <div className="h-4 w-full rounded-full bg-slate-100">
-                    <div
-                      className="h-4 rounded-full bg-gradient-to-r from-blue-700 to-cyan-500 transition-all duration-700 ease-out"
-                      style={{ width: `${(item.count / maxCount) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      {error ? (
+        <div className="rounded-xl border border-red-100 bg-red-50 p-10 text-center text-sm font-medium text-red-600 shadow-sm">
+          {error}
         </div>
+      ) : loading ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm font-medium text-slate-500 shadow-sm">
+          Loading dashboard…
+        </div>
+      ) : (
+        <>
+          {/* Smart metric cards */}
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {stats.map((stat) => {
+              const Icon = stat.Icon
+              return (
+                <div
+                  key={stat.title}
+                  className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-6 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                >
+                  {/* Faint decorative background icon */}
+                  <Icon className="pointer-events-none absolute -right-4 -top-4 h-28 w-28 text-slate-100 transition-transform duration-300 group-hover:scale-110" />
 
-        {/* Recent activity timeline */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-md">
-          <h3 className="mb-5 text-lg font-semibold text-slate-900">
-            Recent Activity
-          </h3>
-          {recentActivity.length === 0 ? (
-            <p className="text-sm text-slate-400">No recent activity.</p>
-          ) : (
-            <ol className="relative space-y-6">
-              {/* Continuous polished timeline line */}
-              <span
-                aria-hidden="true"
-                className="absolute bottom-3 left-[17px] top-3 w-px bg-slate-200"
-              />
-              {recentActivity.map((event, index) => (
-                <li key={event.id} className="relative flex items-start gap-4">
+                  <div className="relative">
+                    <p className="text-sm font-medium text-slate-500">{stat.title}</p>
+                    <div className="mt-2 flex items-end gap-3">
+                      <span className="text-4xl font-bold tabular-nums text-slate-800">
+                        {stat.value}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Chart + activity feed — stacked on mobile, side-by-side on desktop */}
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* Bar chart */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-md">
+              <h3 className="mb-5 text-lg font-semibold text-slate-900">
+                Participants per Hackathon
+              </h3>
+              {participantsPerHackathon.length === 0 ? (
+                <p className="text-sm text-slate-400">No hackathon data yet.</p>
+              ) : (
+                <div className="space-y-5">
+                  {participantsPerHackathon.map((item) => (
+                    <div key={item.name}>
+                      <div className="mb-1.5 flex items-center justify-between text-sm">
+                        <span className="font-medium text-slate-700">
+                          {item.name}
+                        </span>
+                        <span className="tabular-nums text-slate-500">
+                          {item.count}
+                        </span>
+                      </div>
+                      <div className="h-4 w-full rounded-full bg-slate-100">
+                        <div
+                          className="h-4 rounded-full bg-gradient-to-r from-blue-700 to-cyan-500 transition-all duration-700 ease-out"
+                          style={{ width: `${(item.count / maxCount) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Recent activity timeline */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-md">
+              <h3 className="mb-5 text-lg font-semibold text-slate-900">
+                Recent Activity
+              </h3>
+              {recentActivity.length === 0 ? (
+                <p className="text-sm text-slate-400">No recent activity.</p>
+              ) : (
+                <ol className="relative space-y-6">
+                  {/* Continuous polished timeline line */}
                   <span
-                    className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ring-4 ring-white ${event.dot}`}
-                  >
-                    {activityInitials(event.text)}
-                  </span>
-                  <div className="flex flex-1 items-start justify-between gap-3 pt-1.5">
-                    <p className="text-sm text-slate-700">{event.text}</p>
-                    <span className="shrink-0 whitespace-nowrap text-xs text-slate-400">
-                      {ACTIVITY_TIMES[index] ?? ''}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
-      </div>
+                    aria-hidden="true"
+                    className="absolute bottom-3 left-[17px] top-3 w-px bg-slate-200"
+                  />
+                  {recentActivity.map((event, index) => (
+                    <li key={event.id} className="relative flex items-start gap-4">
+                      <span
+                        className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ring-4 ring-white ${event.dot}`}
+                      >
+                        {activityInitials(event.text)}
+                      </span>
+                      <div className="flex flex-1 items-start justify-between gap-3 pt-1.5">
+                        <p className="text-sm text-slate-700">{event.text}</p>
+                        <span className="shrink-0 whitespace-nowrap text-xs text-slate-400">
+                          {ACTIVITY_TIMES[index] ?? ''}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

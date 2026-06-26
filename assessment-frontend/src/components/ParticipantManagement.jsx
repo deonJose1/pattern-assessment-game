@@ -1,45 +1,8 @@
-// Participant management — relational mock data derived from the shared store.
-// Each team in localStorage generates 2 members (Frontend + Backend), linked to
-// that team and its hackathon. Client-side search + role badges. Premium table.
+// Participant management — live roster from the backend (GET /api/participants).
+// Client-side search across name/email/team/hackathon/role, with role badges.
 
-import { useState } from 'react'
-
-const STORAGE_KEY = 'shared_hackathon_data'
-
-function loadSharedData() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) return JSON.parse(stored)
-  } catch {
-    // Corrupt/unreadable storage — fall through to empty.
-  }
-  return []
-}
-
-const FIRST_NAMES = [
-  'Alice', 'Bob', 'Carlos', 'Diana', 'Ethan', 'Fatima',
-  'Grace', 'Hiro', 'Ivy', 'Jamal', 'Kira', 'Liam',
-  'Maya', 'Noah', 'Omar', 'Priya', 'Quinn', 'Rosa',
-]
-
-const MEMBER_ROLES = ['Frontend', 'Backend']
-
-// Expand each team (submission) into 2 relational member records.
-function buildParticipants(data) {
-  return data.flatMap((submission, teamIndex) =>
-    MEMBER_ROLES.map((role, memberIndex) => {
-      const name = FIRST_NAMES[(teamIndex * 2 + memberIndex) % FIRST_NAMES.length]
-      return {
-        id: `${submission.id}-${memberIndex}`,
-        name,
-        email: `${name.toLowerCase()}@cognizant.com`,
-        teamName: submission.team,
-        hackathon: submission.hackathon,
-        role,
-      }
-    }),
-  )
-}
+import { useEffect, useState } from 'react'
+import axiosClient from '../api/axiosClient'
 
 // Subtle role pill — purple for AI, blue for Frontend, gray for Backend/other.
 function RoleBadge({ role }) {
@@ -73,8 +36,28 @@ function SearchIcon({ className }) {
 }
 
 function ParticipantManagement() {
-  const [participants] = useState(() => buildParticipants(loadSharedData()))
+  const [participants, setParticipants] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [query, setQuery] = useState('')
+
+  useEffect(() => {
+    let active = true
+    axiosClient
+      .get('/admin/participants')
+      .then((res) => {
+        if (active) setParticipants(res.data)
+      })
+      .catch(() => {
+        if (active) setError('Failed to load participants. Please try again.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const normalizedQuery = query.trim().toLowerCase()
   const filtered = participants.filter((participant) =>
@@ -124,7 +107,19 @@ function ParticipantManagement() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-500">
+                    Loading participants…
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-sm font-medium text-red-600">
+                    {error}
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}

@@ -1,6 +1,5 @@
 package com.cognizant.hackathon.service;
 
-import com.cognizant.hackathon.dto.EvaluateResponse;
 import com.cognizant.hackathon.dto.SubmissionDto;
 import com.cognizant.hackathon.entity.Submission;
 import com.cognizant.hackathon.entity.enums.SubmissionStatus;
@@ -9,9 +8,7 @@ import com.cognizant.hackathon.repository.SubmissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -29,31 +26,6 @@ public class SubmissionService {
         Submission submission = findById(id);
         submission.setStatus(parseStatus(statusValue));
         return toDto(submissionRepository.save(submission));
-    }
-
-    public SubmissionDto updateScore(Long id, Integer score) {
-        Submission submission = findById(id);
-        submission.setScore(score);
-        return toDto(submissionRepository.save(submission));
-    }
-
-    /**
-     * Human-in-the-loop evaluation: persists the per-criterion breakdown and the
-     * summed total, then returns the total to the caller.
-     */
-    public EvaluateResponse evaluate(Long id, Map<String, Integer> scores) {
-        Submission submission = findById(id);
-
-        int total = scores.values().stream()
-                .filter(v -> v != null)
-                .mapToInt(Integer::intValue)
-                .sum();
-
-        submission.setScoreBreakdown(new HashMap<>(scores));
-        submission.setScore(total);
-        submissionRepository.save(submission);
-
-        return new EvaluateResponse(total);
     }
 
     private Submission findById(Long id) {

@@ -1,37 +1,36 @@
 package com.cognizant.hackathon.entity;
 
-import com.cognizant.hackathon.entity.enums.AdminRole;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** An assigned score for a submission. One row per submission. */
 @Entity
-@Table(name = "admins")
+@Table(name = "scores")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AdminUser {
+public class Score {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
-    private String email;
+    @OneToOne
+    @JoinColumn(name = "submission_id", unique = true)
+    private Submission submission;
 
-    /** BCrypt-hashed password. */
-    private String password;
-
-    @Enumerated(EnumType.STRING)
-    private AdminRole role;
+    /** Total awarded points. ("value" is a reserved word, so map to a safe column.) */
+    @Column(name = "score_value")
+    private int value;
 }

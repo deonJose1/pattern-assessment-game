@@ -1,10 +1,7 @@
 package com.cognizant.hackathon.entity;
 
-import com.cognizant.hackathon.entity.enums.AdminRole;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -14,24 +11,31 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Persisted, pre-computed leaderboard rankings per event. Rebuilt whenever a
+ * score is assigned. ("rank" is a reserved word in PostgreSQL, so the column is
+ * mapped to "ranking".)
+ */
 @Entity
-@Table(name = "admins")
+@Table(name = "leaderboard")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AdminUser {
+public class Leaderboard {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
-    private String email;
+    private Long eventId;
 
-    /** BCrypt-hashed password. */
-    private String password;
+    private String teamName;
 
-    @Enumerated(EnumType.STRING)
-    private AdminRole role;
+    private String projectTitle;
+
+    private int score;
+
+    @Column(name = "ranking")
+    private int ranking;
 }

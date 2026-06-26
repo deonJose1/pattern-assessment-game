@@ -1,31 +1,12 @@
-// Manage Hackathons — the single source of truth for hackathon EVENTS, persisted
-// to localStorage under 'hackathon_events'. Lazy-init from storage (seed on first
-// run), save on every change. Skillspring light table with status pills, an
-// expandable detail row, and a custom delete-confirmation modal.
+// Manage Hackathons — live list backed by the API (GET /api/hackathons), with a
+// status-pill table, an expandable detail row, and a delete-confirmation modal
+// (DELETE /api/hackathons/{id}). Mutations update the table in place on success.
 
 import { Fragment, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getHackathons, deleteHackathon } from '../services/hackathonService'
+import { useToast } from '../context/ToastContext'
 import Button from '../components/ui/Button'
-
-const STORAGE_KEY = 'hackathon_events'
-
-const SEED_EVENTS = [
-  { id: 1, title: 'AI Innovation Sprint', startDate: '2026-07-01', endDate: '2026-07-03', status: 'ACTIVE' },
-  { id: 2, title: 'FinTech Build Weekend', startDate: '2026-08-15', endDate: '2026-08-17', status: 'UPCOMING' },
-  { id: 3, title: 'Cloud Native Challenge', startDate: '2026-05-09', endDate: '2026-05-11', status: 'ACTIVE' },
-  { id: 4, title: 'Technoverse hackathon', startDate: '2026-06-26', endDate: '2026-07-10', status: 'UPCOMING' },
-]
-
-// Read events from localStorage, falling back to the seed if absent/corrupt.
-function loadEvents() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) return JSON.parse(stored)
-  } catch {
-    // Corrupt/unreadable storage — fall through to the seed.
-  }
-  return SEED_EVENTS
-}
 
 // Skillspring status pill — case-insensitive with three distinct tones:
 // green for Active, blue for Upcoming, gray for Completed.
@@ -90,15 +71,32 @@ function WarningTriangleIcon({ className }) {
 
 function HackathonList() {
   const navigate = useNavigate()
-  const [hackathons, setHackathons] = useState(loadEvents)
+  const { showToast } = useToast()
+  const [hackathons, setHackathons] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [expandedRowId, setExpandedRowId] = useState(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [hackathonToDelete, setHackathonToDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
-  // Persist events on every change (single source of truth).
+  // Load all hackathons once on mount.
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(hackathons))
-  }, [hackathons])
+    let active = true
+    getHackathons()
+      .then((data) => {
+        if (active) setHackathons(data)
+      })
+      .catch(() => {
+        if (active) setError('Failed to load hackathons. Please try again.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const toggleRow = (id) => {
     setExpandedRowId((prev) => (prev === id ? null : id))
@@ -110,16 +108,28 @@ function HackathonList() {
   }
 
   const closeDeleteModal = () => {
+    if (deleting) return
     setIsDeleteModalOpen(false)
     setHackathonToDelete(null)
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!hackathonToDelete) return
-    setHackathons((prev) =>
-      prev.filter((hackathon) => hackathon.id !== hackathonToDelete.id),
-    )
-    closeDeleteModal()
+    setDeleting(true)
+    try {
+      await deleteHackathon(hackathonToDelete.id)
+      // Drop the row from the table immediately on success.
+      setHackathons((prev) =>
+        prev.filter((hackathon) => hackathon.id !== hackathonToDelete.id),
+      )
+      showToast('Hackathon deleted.', 'success')
+      setIsDeleteModalOpen(false)
+      setHackathonToDelete(null)
+    } catch {
+      showToast('Failed to delete hackathon. Please try again.', 'error')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   // Close the modal on Escape.
@@ -130,7 +140,8 @@ function HackathonList() {
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
-  }, [isDeleteModalOpen])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDeleteModalOpen, deleting])
 
   return (
     <div>
@@ -161,7 +172,19 @@ function HackathonList() {
               </tr>
             </thead>
             <tbody>
-              {hackathons.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-500">
+                    Loading hackathons…
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-sm font-medium text-red-600">
+                    {error}
+                  </td>
+                </tr>
+              ) : hackathons.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">
                     No hackathon events yet.
@@ -302,16 +325,18 @@ function HackathonList() {
               <button
                 type="button"
                 onClick={closeDeleteModal}
-                className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium text-slate-700 hover:bg-slate-50"
+                disabled={deleting}
+                className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmDelete}
-                className="rounded-xl bg-red-600 px-5 py-2.5 font-medium text-white shadow-sm shadow-red-600/30 hover:bg-red-700"
+                disabled={deleting}
+                className="rounded-xl bg-red-600 px-5 py-2.5 font-medium text-white shadow-sm shadow-red-600/30 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Delete
+                {deleting ? 'Deleting…' : 'Delete'}
               </button>
             </div>
           </div>

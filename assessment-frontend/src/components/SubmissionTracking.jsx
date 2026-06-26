@@ -1,30 +1,10 @@
 // Submission tracking — premium, airy table of project submissions with
-// approve/reject review actions. State is persisted to localStorage under a
-// shared key so it survives refresh and stays in sync with Score Management.
+// approve/reject review actions. Data is fetched live from the backend; each
+// review action PATCHes the new status and updates the row in place on success.
 
 import { useEffect, useState } from 'react'
+import axiosClient from '../api/axiosClient'
 import { useToast } from '../context/ToastContext'
-
-const STORAGE_KEY = 'shared_hackathon_data'
-
-const SEED_DATA = [
-  { id: 1, team: 'Neural Ninjas', hackathon: 'AI Innovation Sprint', projectTitle: 'CostGuard — AI Cloud Spend Optimizer', repositoryUrl: 'https://github.com/cognizant-hackathon-demo/repo', status: 'Pending', score: null },
-  { id: 2, team: 'Pixel Pioneers', hackathon: 'FinTech Build Weekend', projectTitle: 'PayFlow — Instant Settlement Dashboard', repositoryUrl: 'https://github.com/cognizant-hackathon-demo/repo', status: 'Pending', score: null },
-  { id: 3, team: 'Cloud Crusaders', hackathon: 'Cloud Native Challenge', projectTitle: 'K8s Migrator — Legacy to Microservices', repositoryUrl: 'https://github.com/cognizant-hackathon-demo/repo', status: 'Approved', score: null },
-  { id: 4, team: 'Data Dynamos', hackathon: 'AI Innovation Sprint', projectTitle: 'InsightLens — Realtime Anomaly Detection', repositoryUrl: 'https://github.com/cognizant-hackathon-demo/repo', status: 'Rejected', score: null },
-  { id: 5, team: 'Quantum Quokkas', hackathon: 'FinTech Build Weekend', projectTitle: 'LedgerLink — Cross-Bank Reconciliation', repositoryUrl: 'https://github.com/cognizant-hackathon-demo/repo', status: 'Pending', score: null },
-]
-
-// Read shared data from localStorage, falling back to the seed if absent/corrupt.
-function loadSharedData() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) return JSON.parse(stored)
-  } catch {
-    // Corrupt/unreadable storage — fall through to the seed.
-  }
-  return SEED_DATA
-}
 
 // Yellow/Amber for Pending, green for Approved, red for Rejected.
 function SubmissionStatusBadge({ status }) {
@@ -68,32 +48,58 @@ function ExternalLinkIcon({ className }) {
 }
 
 function SubmissionTracking() {
-  const [submissions, setSubmissions] = useState(loadSharedData)
+  const [submissions, setSubmissions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [showPendingOnly, setShowPendingOnly] = useState(false)
+  const [busyId, setBusyId] = useState(null)
   const { showToast } = useToast()
 
-  // Persist + share state whenever it changes.
+  // Load all submissions once on mount.
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions))
-  }, [submissions])
+    let active = true
+    axiosClient
+      .get('/admin/submissions')
+      .then((res) => {
+        if (active) setSubmissions(res.data)
+      })
+      .catch(() => {
+        if (active) setError('Failed to load submissions. Please try again.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
-  const updateStatus = (id, status) => {
-    setSubmissions((prev) =>
-      prev.map((submission) =>
-        submission.id === id ? { ...submission, status } : submission,
-      ),
-    )
+  // PATCH the new status, then replace the row with the server's response.
+  const updateStatus = async (id, status) => {
+    setBusyId(id)
+    try {
+      const { data } = await axiosClient.put(
+        `/admin/submissions/${id}/status`,
+        { status },
+      )
+      setSubmissions((prev) =>
+        prev.map((submission) => (submission.id === id ? data : submission)),
+      )
+      showToast(
+        status === 'APPROVED'
+          ? 'Submission approved successfully!'
+          : 'Submission rejected.',
+        status === 'APPROVED' ? 'success' : 'error',
+      )
+    } catch {
+      showToast('Failed to update submission. Please try again.', 'error')
+    } finally {
+      setBusyId(null)
+    }
   }
 
-  const handleApprove = (id) => {
-    updateStatus(id, 'Approved')
-    showToast('Submission approved successfully!', 'success')
-  }
-
-  const handleReject = (id) => {
-    updateStatus(id, 'Rejected')
-    showToast('Submission rejected.', 'error')
-  }
+  const handleApprove = (id) => updateStatus(id, 'APPROVED')
+  const handleReject = (id) => updateStatus(id, 'REJECTED')
 
   // When the toggle is on, show only pending (un-reviewed) submissions.
   // Compared case-insensitively so it's resilient to status casing.
@@ -143,7 +149,19 @@ function SubmissionTracking() {
               </tr>
             </thead>
             <tbody>
-              {displayedSubmissions.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                    Loading submissions…
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-sm font-medium text-red-600">
+                    {error}
+                  </td>
+                </tr>
+              ) : displayedSubmissions.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-slate-500">
                     No pending submissions to review. You&apos;re all caught up!
@@ -151,7 +169,8 @@ function SubmissionTracking() {
                 </tr>
               ) : (
                 displayedSubmissions.map((submission) => {
-                  const isPending = submission.status === 'Pending'
+                  const isPending = submission.status?.toUpperCase() === 'PENDING'
+                  const isBusy = busyId === submission.id
 
                   return (
                     <tr
@@ -192,14 +211,16 @@ function SubmissionTracking() {
                             <button
                               type="button"
                               onClick={() => handleApprove(submission.id)}
-                              className="rounded-lg border border-green-200 px-3 py-1.5 text-xs font-semibold text-green-700 transition-colors hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-300"
+                              disabled={isBusy}
+                              className="rounded-lg border border-green-200 px-3 py-1.5 text-xs font-semibold text-green-700 transition-colors hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-300 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               Approve
                             </button>
                             <button
                               type="button"
                               onClick={() => handleReject(submission.id)}
-                              className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300"
+                              disabled={isBusy}
+                              className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               Reject
                             </button>

@@ -13,4 +13,6 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     List<Submission> findByStatus(SubmissionStatus status);
 
     List<Submission> findByScoreIsNotNull();
+
+    List<Submission> findByHackathonId(Long hackathonId);
 }

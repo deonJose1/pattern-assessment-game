@@ -1,32 +1,12 @@
-// Score management — "Human-in-the-Loop" AI grading simulation. Approved
-// submissions are evaluated via a modal: a 2s mock "analysis", then an editable
-// rubric (criteria are data-driven per hackathon) auto-filled with AI
-// suggestions and auto-summed to a total score. Confirming writes the total back
-// to the shared localStorage store, using the same lazy-init + persist pattern.
+// Score management — "Human-in-the-Loop" AI grading. Approved submissions are
+// fetched live from the backend and evaluated via a modal: a 2s mock "analysis",
+// then an editable rubric (criteria are data-driven per hackathon) auto-filled
+// with AI suggestions and auto-summed. Confirming POSTs the per-criterion scores
+// to /api/submissions/{id}/evaluate and writes the returned total back to the row.
 
 import { useEffect, useRef, useState } from 'react'
+import axiosClient from '../api/axiosClient'
 import { useToast } from '../context/ToastContext'
-
-const STORAGE_KEY = 'shared_hackathon_data'
-
-const SEED_DATA = [
-  { id: 1, team: 'Neural Ninjas', hackathon: 'AI Innovation Sprint', projectTitle: 'CostGuard — AI Cloud Spend Optimizer', repositoryUrl: 'https://github.com/cognizant-hackathon-demo/repo', status: 'Pending', score: null },
-  { id: 2, team: 'Pixel Pioneers', hackathon: 'FinTech Build Weekend', projectTitle: 'PayFlow — Instant Settlement Dashboard', repositoryUrl: 'https://github.com/cognizant-hackathon-demo/repo', status: 'Pending', score: null },
-  { id: 3, team: 'Cloud Crusaders', hackathon: 'Cloud Native Challenge', projectTitle: 'K8s Migrator — Legacy to Microservices', repositoryUrl: 'https://github.com/cognizant-hackathon-demo/repo', status: 'Approved', score: null },
-  { id: 4, team: 'Data Dynamos', hackathon: 'AI Innovation Sprint', projectTitle: 'InsightLens — Realtime Anomaly Detection', repositoryUrl: 'https://github.com/cognizant-hackathon-demo/repo', status: 'Rejected', score: null },
-  { id: 5, team: 'Quantum Quokkas', hackathon: 'FinTech Build Weekend', projectTitle: 'LedgerLink — Cross-Bank Reconciliation', repositoryUrl: 'https://github.com/cognizant-hackathon-demo/repo', status: 'Pending', score: null },
-]
-
-// Read shared data from localStorage, falling back to the seed if absent/corrupt.
-function loadSharedData() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) return JSON.parse(stored)
-  } catch {
-    // Corrupt/unreadable storage — fall through to the seed.
-  }
-  return SEED_DATA
-}
 
 // Default rubric used when a hackathon has no specific criteria mapping.
 const DEFAULT_CRITERIA = [
@@ -71,7 +51,9 @@ function ExternalLinkIcon({ className }) {
 }
 
 function ScoreManagement() {
-  const [submissions, setSubmissions] = useState(loadSharedData)
+  const [submissions, setSubmissions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const { showToast } = useToast()
 
   const [activeSubmission, setActiveSubmission] = useState(null)
@@ -79,12 +61,27 @@ function ScoreManagement() {
   // Criteria for the active submission's hackathon, and parallel score values.
   const [activeCriteria, setActiveCriteria] = useState([])
   const [scores, setScores] = useState([])
+  const [submitting, setSubmitting] = useState(false)
   const timerRef = useRef(null)
 
-  // Persist + share state whenever it changes.
+  // Load all submissions once on mount.
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions))
-  }, [submissions])
+    let active = true
+    axiosClient
+      .get('/api/submissions')
+      .then((res) => {
+        if (active) setSubmissions(res.data)
+      })
+      .catch(() => {
+        if (active) setError('Failed to load submissions. Please try again.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   // Clean up a pending analysis timer on unmount.
   useEffect(() => {
@@ -130,29 +127,43 @@ function ScoreManagement() {
   const totalMax = activeCriteria.reduce((sum, c) => sum + c.max, 0)
   const totalScore = scores.reduce((sum, value) => sum + (value || 0), 0)
 
-  const handleConfirm = () => {
+  // Sum the rubric criteria locally and send the total to the scoring endpoint
+  // as { submissionId, score }, matching the backend contract.
+  const handleConfirm = async () => {
     if (!activeSubmission) return
-    setSubmissions((prev) =>
-      prev.map((submission) =>
-        submission.id === activeSubmission.id
-          ? { ...submission, score: totalScore }
-          : submission,
-      ),
-    )
-    showToast('Score saved successfully!', 'success')
-    closeModal()
+
+    setSubmitting(true)
+    try {
+      const { data } = await axiosClient.post('/admin/scores', {
+        submissionId: activeSubmission.id,
+        score: totalScore,
+      })
+      // Reflect the assigned score in the row immediately.
+      setSubmissions((prev) =>
+        prev.map((submission) =>
+          submission.id === activeSubmission.id
+            ? { ...submission, score: data.score }
+            : submission,
+        ),
+      )
+      showToast('Score saved successfully!', 'success')
+      closeModal()
+    } catch {
+      showToast('Failed to save score. Please try again.', 'error')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  // Close the modal on Escape (unless mid-analysis).
+  // Close the modal on Escape (unless mid-analysis or submitting).
   useEffect(() => {
     if (!activeSubmission) return
     function handleKey(event) {
-      if (event.key === 'Escape' && phase === 'scoring') closeModal()
+      if (event.key === 'Escape' && phase === 'scoring' && !submitting) closeModal()
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSubmission, phase])
+  }, [activeSubmission, phase, submitting])
 
   return (
     <div>
@@ -177,7 +188,19 @@ function ScoreManagement() {
               </tr>
             </thead>
             <tbody>
-              {displayedSubmissions.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-500">
+                    Loading submissions…
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-sm font-medium text-red-600">
+                    {error}
+                  </td>
+                </tr>
+              ) : displayedSubmissions.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-slate-500">
                     No approved submissions available for scoring. Check the
@@ -186,7 +209,7 @@ function ScoreManagement() {
                 </tr>
               ) : (
                 displayedSubmissions.map((submission) => {
-                  const isScored = submission.score !== null
+                  const isScored = submission.score !== null && submission.score !== undefined
 
                   return (
                     <tr
@@ -256,7 +279,7 @@ function ScoreManagement() {
       {/* ---------- AI evaluation modal ---------- */}
       {activeSubmission && (
         <div
-          onClick={phase === 'scoring' ? closeModal : undefined}
+          onClick={phase === 'scoring' && !submitting ? closeModal : undefined}
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
         >
           <div
@@ -340,16 +363,18 @@ function ScoreManagement() {
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                    disabled={submitting}
+                    className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handleConfirm}
-                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    disabled={submitting}
+                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Confirm &amp; Assign Score
+                    {submitting ? 'Saving…' : 'Confirm & Assign Score'}
                   </button>
                 </div>
               </div>

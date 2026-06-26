@@ -4,6 +4,7 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { login as loginRequest } from '../api/authService'
 
 const CORPORATE_DOMAIN = '@cognizant.com'
 
@@ -13,11 +14,27 @@ function AdminLogin() {
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const signIn = (address) => {
-    localStorage.setItem('isAdminAuth', 'true')
-    localStorage.setItem('adminEmail', address)
-    navigate('/dashboard')
+  // Calls the backend, stores the JWT (via authService) and routes into the app.
+  const authenticate = async (address, secret) => {
+    setError('')
+    setLoading(true)
+    try {
+      await loginRequest(address, secret)
+      navigate('/dashboard')
+    } catch (err) {
+      const status = err.response?.status
+      if (status === 401) {
+        setError('Invalid email or password. Please try again.')
+      } else if (status === 400) {
+        setError('Please use a valid @cognizant.com email address')
+      } else {
+        setError('Unable to sign in right now. Please try again later.')
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSubmit = (event) => {
@@ -27,8 +44,7 @@ function AdminLogin() {
       setError('Please use a valid @cognizant.com email address')
       return
     }
-    // Mock auth — accept any password for now (backend pending).
-    signIn(trimmed)
+    authenticate(trimmed, password)
   }
 
   const inputClasses =
@@ -144,9 +160,10 @@ function AdminLogin() {
 
               <button
                 type="submit"
-                className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                disabled={loading}
+                className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Sign In
+                {loading ? 'Signing in…' : 'Sign In'}
               </button>
 
               {/* OR divider */}
@@ -156,11 +173,12 @@ function AdminLogin() {
                 <span className="h-px flex-1 bg-slate-200" />
               </div>
 
-              {/* SSO */}
+              {/* SSO — demo shortcut: signs in as the seeded admin account. */}
               <button
                 type="button"
-                onClick={() => signIn('admin@cognizant.com')}
-                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                disabled={loading}
+                onClick={() => authenticate('admin@cognizant.com', 'admin123')}
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Sign in with Cognizant SSO
               </button>

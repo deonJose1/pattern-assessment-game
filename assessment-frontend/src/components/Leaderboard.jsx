@@ -1,21 +1,9 @@
-// Leaderboard — fully data-driven from the shared localStorage store. Shows only
-// scored submissions, ranked descending, filterable by hackathon, with a CSV
-// export of the current view. Gold/silver/bronze styling for the top 3.
+// Leaderboard — fully data-driven from the backend. Fetches submissions via the
+// API, shows only scored ones, ranked descending, filterable by hackathon, with
+// a CSV export of the current view. Gold/silver/bronze styling for the top 3.
 
-import { useState } from 'react'
-
-const STORAGE_KEY = 'shared_hackathon_data'
-
-// Read shared data from localStorage; default to an empty array if absent/corrupt.
-function loadSharedData() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) return JSON.parse(stored)
-  } catch {
-    // Corrupt/unreadable storage — fall through to empty.
-  }
-  return []
-}
+import { useEffect, useState } from 'react'
+import axiosClient from '../api/axiosClient'
 
 // Per-rank visual treatment for the podium (top 3).
 const RANK_STYLES = {
@@ -61,8 +49,30 @@ function DownloadIcon({ className }) {
 const escapeCsv = (value) => `"${String(value).replace(/"/g, '""')}"`
 
 function Leaderboard() {
-  const [submissions] = useState(loadSharedData)
+  const [submissions, setSubmissions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [selectedHackathon, setSelectedHackathon] = useState('All')
+
+  // Fetch all submissions once on mount. The axiosClient attaches the JWT and
+  // redirects to /login automatically if the session has expired.
+  useEffect(() => {
+    let active = true
+    axiosClient
+      .get('/admin/submissions')
+      .then((res) => {
+        if (active) setSubmissions(res.data)
+      })
+      .catch(() => {
+        if (active) setError('Failed to load submissions. Please try again.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   // Unique hackathon names present in the data, for the filter dropdown.
   const hackathonOptions = [
@@ -112,11 +122,11 @@ function Leaderboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <select
             value={selectedHackathon}
             onChange={(event) => setSelectedHackathon(event.target.value)}
-            className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 sm:w-64"
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 sm:w-64"
           >
             <option value="All">All Hackathons</option>
             {hackathonOptions.map((hackathon) => (
@@ -138,7 +148,15 @@ function Leaderboard() {
         </div>
       </div>
 
-      {displayedLeaderboard.length === 0 ? (
+      {loading ? (
+        <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-sm font-medium text-slate-500 shadow-sm">
+          Loading leaderboard…
+        </div>
+      ) : error ? (
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-10 text-center text-sm font-medium text-red-600 shadow-sm">
+          {error}
+        </div>
+      ) : displayedLeaderboard.length === 0 ? (
         <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-sm font-medium text-slate-500 shadow-sm">
           No scored submissions yet. Assign scores in Score Management to
           populate the leaderboard.

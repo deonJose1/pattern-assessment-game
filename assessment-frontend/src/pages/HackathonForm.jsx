@@ -158,6 +158,7 @@ function HackathonForm() {
   })
   const [loading, setLoading] = useState(isEditing)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   // In edit mode, fetch the existing hackathon and populate the form.
   useEffect(() => {
@@ -167,18 +168,16 @@ function HackathonForm() {
       try {
         const data = await getHackathonById(id)
         if (!active) return
-        if (data) {
-          setForm({
-            title: data.title ?? '',
-            description: data.description ?? '',
-            startDate: data.startDate ?? '',
-            endDate: data.endDate ?? '',
-            status: data.status ?? 'UPCOMING',
-          })
-        } else {
-          // Unknown id — fall back to the list.
-          navigate('/hackathons')
-        }
+        setForm({
+          title: data.title ?? '',
+          description: data.description ?? '',
+          startDate: data.startDate ?? '',
+          endDate: data.endDate ?? '',
+          status: data.status ?? 'UPCOMING',
+        })
+      } catch {
+        // Unknown id or load failure — fall back to the list.
+        if (active) navigate('/hackathons')
       } finally {
         if (active) setLoading(false)
       }
@@ -201,6 +200,7 @@ function HackathonForm() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setSaving(true)
+    setError('')
     try {
       if (isEditing) {
         await updateHackathon(id, form)
@@ -210,6 +210,7 @@ function HackathonForm() {
       navigate('/hackathons')
     } catch {
       // Surface failure and let the user retry rather than stranding them.
+      setError('Something went wrong while saving. Please try again.')
       setSaving(false)
     }
   }
@@ -288,6 +289,12 @@ function HackathonForm() {
             onChange={handleStatusChange}
           />
         </div>
+
+        {error && (
+          <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+            {error}
+          </p>
+        )}
 
         <div className="flex items-center justify-end gap-3">
           <Button

@@ -34,11 +34,13 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-h2console'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+	// OpenAPI / Swagger UI (served at /swagger-ui.html, spec at /v3/api-docs).
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13'
 
 	// JWT (jjwt). Use the gson serializer rather than jackson: Spring Boot 4
 	// ships Jackson 3 (tools.jackson.*) while jjwt-jackson targets Jackson 2,
@@ -48,11 +50,12 @@ dependencies {
 	runtimeOnly 'io.jsonwebtoken:jjwt-gson:0.12.6'
 
 	compileOnly 'org.projectlombok:lombok'
-	runtimeOnly 'com.h2database:h2'
+	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation 'org.mockito:mockito-junit-jupiter'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
