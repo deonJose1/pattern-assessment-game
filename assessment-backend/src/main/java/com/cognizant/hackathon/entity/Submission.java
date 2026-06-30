@@ -39,8 +39,15 @@ public class Submission {
     @Enumerated(EnumType.STRING)
     private SubmissionStatus status;
 
-    /** Total evaluated score; null until the submission has been scored. */
+    /** Human rubric score (0-100), assigned via /admin/scores. Distinct from aiScore. */
     private Integer score;
+
+    /** AI evaluation score (0-10) from the Claude scoring service — separate from the human rubric score. */
+    private Integer aiScore;
+
+    /** AI-generated qualitative feedback — separate from human grading. */
+    @Column(length = 2000)
+    private String aiFeedback;
 
     /** Per-criterion score breakdown captured during evaluation. */
     @ElementCollection

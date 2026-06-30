@@ -7,16 +7,17 @@
 //   ...rest   standard button attributes (onClick, disabled, type, etc.)
 
 const BASE =
-  'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60'
+  'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60'
 
 const SIZES = {
-  sm: 'rounded-lg px-3 py-1.5 text-xs',
+  sm: 'px-3 py-1.5 text-xs',
   md: 'px-5 py-2.5 text-sm',
 }
 
 const VARIANTS = {
+  // Primary = the unified gradient action: darken + lift on hover, press on active.
   primary:
-    'border border-transparent bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-400',
+    'border border-transparent bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm hover:from-blue-700 hover:to-indigo-700 hover:shadow-md active:shadow-sm focus:ring-blue-500',
   danger:
     'border border-red-200 text-red-600 hover:bg-red-50 focus:ring-red-300',
   secondary:

@@ -17,6 +17,7 @@ import com.cognizant.hackathon.repository.RubricCriterionRepository;
 import com.cognizant.hackathon.repository.SubmissionRepository;
 import com.cognizant.hackathon.repository.TeamRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -30,9 +31,15 @@ import java.time.LocalDate;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class DataInitializer implements CommandLineRunner {
 
     private static final String DEMO_REPO = "https://github.com/cognizant-hackathon-demo/repo";
+
+    // Per-hackathon submission secrets seeded for the demo events.
+    private static final String SECRET_AI = "ai-sprint-2026";
+    private static final String SECRET_FINTECH = "fintech-2026";
+    private static final String SECRET_CLOUD = "cloud-native-2026";
 
     private final HackathonRepository hackathonRepository;
     private final TeamRepository teamRepository;
@@ -44,12 +51,45 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        // IMPORTANT: all seeding goes through repositories directly — NEVER through
+        // the event-publishing services (HackathonService, SubmissionService, etc.).
+        // Bootstrap data is not a user action, so it must not emit activity events.
+        // Combined with the idempotency guards below, a restart never floods the feed.
         if (hackathonRepository.count() == 0) {
             seedDomainData();
+        } else {
+            log.info("Demo data already present ({} hackathons) — skipping domain seeding.",
+                    hackathonRepository.count());
         }
+
         if (adminUserRepository.count() == 0) {
             seedAdmins();
         }
+
+        // Idempotent backfill: ensureCriteria() only inserts for hackathons that
+        // currently have none, so re-running this on a seeded DB is a no-op.
+        seedCriteria();
+
+        // Idempotent backfill of per-hackathon submission secrets, so demo events
+        // that predate the submissionSecret column (added via ddl-auto=update) can
+        // still accept submissions.
+        ensureSubmissionSecrets();
+    }
+
+    /** Sets a submission secret on each demo hackathon that currently lacks one. */
+    private void ensureSubmissionSecrets() {
+        setSecretIfMissing("AI Innovation Sprint", SECRET_AI);
+        setSecretIfMissing("FinTech Build Weekend", SECRET_FINTECH);
+        setSecretIfMissing("Cloud Native Challenge", SECRET_CLOUD);
+    }
+
+    private void setSecretIfMissing(String title, String secret) {
+        hackathonRepository.findFirstByTitle(title).ifPresent(hackathon -> {
+            if (hackathon.getSubmissionSecret() == null || hackathon.getSubmissionSecret().isBlank()) {
+                hackathon.setSubmissionSecret(secret);
+                hackathonRepository.save(hackathon);
+            }
+        });
     }
 
     private void seedDomainData() {
@@ -59,7 +99,8 @@ public class DataInitializer implements CommandLineRunner {
                 "AI/ML for cloud cost optimization & ops tooling",
                 LocalDate.now().plusDays(1),
                 LocalDate.now().plusDays(3),
-                "ACTIVE"));
+                "ACTIVE",
+                SECRET_AI));
 
         Hackathon finTech = hackathonRepository.save(new Hackathon(
                 null,
@@ -67,7 +108,8 @@ public class DataInitializer implements CommandLineRunner {
                 "Payment & fraud-detection prototyping",
                 LocalDate.now().plusDays(7),
                 LocalDate.now().plusDays(9),
-                "UPCOMING"));
+                "UPCOMING",
+                SECRET_FINTECH));
 
         Hackathon cloudNative = hackathonRepository.save(new Hackathon(
                 null,
@@ -75,12 +117,11 @@ public class DataInitializer implements CommandLineRunner {
                 "Legacy to Kubernetes-native microservices migration task.",
                 LocalDate.now().minusDays(5),
                 LocalDate.now().minusDays(2),
-                "COMPLETED"));
+                "COMPLETED",
+                SECRET_CLOUD));
 
-        // Rubrics (each set sums to 100), matching the frontend's per-hackathon criteria.
-        seedRubric(aiSprint, "Model Accuracy", 30, "Innovation", 30, "Code Quality", 40);
-        seedRubric(cloudNative, "Scalability", 40, "Security", 30, "Implementation", 30);
-        seedRubric(finTech, "Innovation", 25, "Technical Complexity", 25, "UI/UX", 25, "Business Value", 25);
+        // Evaluation criteria are seeded separately by seedCriteria() so they're
+        // also backfilled onto an already-populated database.
 
         // Teams + their two members + project submissions.
         seedTeam("Neural Ninjas", aiSprint, "CostGuard — AI Cloud Spend Optimizer", SubmissionStatus.PENDING,
@@ -105,6 +146,26 @@ public class DataInitializer implements CommandLineRunner {
                     .hackathon(hackathon)
                     .build());
         }
+    }
+
+    /** Seeds default evaluation criteria for the demo hackathons (idempotent). */
+    private void seedCriteria() {
+        ensureCriteria("AI Innovation Sprint", "Model Accuracy", 30, "Innovation", 30, "Code Quality", 40);
+        ensureCriteria("Cloud Native Challenge", "Scalability", 40, "Security", 30, "Implementation", 30);
+        ensureCriteria("FinTech Build Weekend",
+                "Innovation", 25, "Technical Complexity", 25, "UI/UX", 25, "Business Value", 25);
+    }
+
+    /** Adds the given criteria to the named hackathon only if it currently has none. */
+    private void ensureCriteria(String hackathonTitle, Object... nameMaxPairs) {
+        hackathonRepository.findAll().stream()
+                .filter(h -> hackathonTitle.equals(h.getTitle()))
+                .findFirst()
+                .ifPresent(hackathon -> {
+                    if (rubricCriterionRepository.findByHackathonId(hackathon.getId()).isEmpty()) {
+                        seedRubric(hackathon, nameMaxPairs);
+                    }
+                });
     }
 
     private void seedTeam(String teamName, Hackathon hackathon, String projectTitle, SubmissionStatus status,

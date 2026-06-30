@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login as loginRequest } from '../api/authService'
+import Button from './ui/Button'
 
 const CORPORATE_DOMAIN = '@cognizant.com'
 
@@ -158,13 +159,14 @@ function AdminLogin() {
                 </a>
               </div>
 
-              <button
+              <Button
                 type="submit"
-                disabled={loading}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                variant="primary"
+                isLoading={loading}
+                className="w-full"
               >
                 {loading ? 'Signing in…' : 'Sign In'}
-              </button>
+              </Button>
 
               {/* OR divider */}
               <div className="flex items-center gap-3">
@@ -174,14 +176,15 @@ function AdminLogin() {
               </div>
 
               {/* SSO — demo shortcut: signs in as the seeded admin account. */}
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 disabled={loading}
                 onClick={() => authenticate('admin@cognizant.com', 'admin123')}
-                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full"
               >
                 Sign in with Cognizant SSO
-              </button>
+              </Button>
             </form>
           </div>
         </div>

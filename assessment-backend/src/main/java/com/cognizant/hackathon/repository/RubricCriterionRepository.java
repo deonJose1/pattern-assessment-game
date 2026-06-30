@@ -10,4 +10,6 @@ import java.util.List;
 public interface RubricCriterionRepository extends JpaRepository<RubricCriterion, Long> {
 
     List<RubricCriterion> findByHackathonId(Long hackathonId);
+
+    void deleteByHackathonId(Long hackathonId);
 }

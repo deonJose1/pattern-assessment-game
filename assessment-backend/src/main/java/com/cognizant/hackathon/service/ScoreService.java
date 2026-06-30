@@ -5,9 +5,11 @@ import com.cognizant.hackathon.dto.ScoreResponse;
 import com.cognizant.hackathon.entity.Score;
 import com.cognizant.hackathon.entity.Submission;
 import com.cognizant.hackathon.exception.ResourceNotFoundException;
+import com.cognizant.hackathon.event.SubmissionScoredEvent;
 import com.cognizant.hackathon.repository.ScoreRepository;
 import com.cognizant.hackathon.repository.SubmissionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,7 @@ public class ScoreService {
     private final SubmissionRepository submissionRepository;
     private final ScoreRepository scoreRepository;
     private final LeaderboardService leaderboardService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Assigns (or re-assigns) a submission's score: persists it in the scores
@@ -43,6 +46,11 @@ public class ScoreService {
         if (eventId != null) {
             leaderboardService.recompute(eventId);
         }
+
+        // Decoupled side effect: an AFTER_COMMIT listener turns this into an
+        // activity-feed entry once the score is durably persisted.
+        String teamName = submission.getTeam() != null ? submission.getTeam().getName() : "a team";
+        eventPublisher.publishEvent(new SubmissionScoredEvent(submission.getId(), teamName, request.score()));
 
         return new ScoreResponse(submission.getId(), request.score(), eventId);
     }

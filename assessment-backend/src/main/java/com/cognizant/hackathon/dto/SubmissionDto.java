@@ -8,6 +8,7 @@ public record SubmissionDto(
         Long id,
         String team,
         String hackathon,
+        Long hackathonId,
         String projectTitle,
         String repositoryUrl,
         String status,

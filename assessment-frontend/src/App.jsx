@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ToastProvider } from './context/ToastContext'
 import AdminLayout from './components/AdminLayout'
 import AdminLogin from './components/AdminLogin'
+import SubmissionForm from './components/SubmissionForm'
 import AdminDashboard from './pages/AdminDashboard'
 import HackathonList from './pages/HackathonList'
 import HackathonForm from './pages/HackathonForm'
@@ -29,6 +30,7 @@ function App() {
         <Routes>
         {/* Public */}
         <Route path="/login" element={<AdminLogin />} />
+        <Route path="/submit" element={<SubmissionForm />} />
 
         {/* Protected admin area */}
         <Route

@@ -1,44 +1,22 @@
-// Score management — "Human-in-the-Loop" AI grading. Approved submissions are
-// fetched live from the backend and evaluated via a modal: a 2s mock "analysis",
-// then an editable rubric (criteria are data-driven per hackathon) auto-filled
-// with AI suggestions and auto-summed. Confirming POSTs the per-criterion scores
-// to /api/submissions/{id}/evaluate and writes the returned total back to the row.
+// Score management — a manual-first "Grading Center". Clicking "Grade Submission"
+// opens the modal immediately with the hackathon's configured rubric rendered as
+// empty inputs, so an admin can grade by hand right away. AI is fully optional and
+// non-blocking: the in-modal "Get AI Suggestions" button calls SubmissionAiService
+// and pre-fills the inputs, but a failure only toasts and leaves the modal open.
+// "Confirm & Assign Score" always saves whatever is currently in the inputs.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import axiosClient from '../api/axiosClient'
 import { useToast } from '../context/ToastContext'
+import Button from './ui/Button'
 
-// Default rubric used when a hackathon has no specific criteria mapping.
+// Default rubric used when a hackathon has no configured criteria.
 const DEFAULT_CRITERIA = [
   { name: 'Innovation', max: 25 },
   { name: 'Technical Complexity', max: 25 },
   { name: 'UI/UX', max: 25 },
   { name: 'Business Value', max: 25 },
 ]
-
-// Per-hackathon evaluation criteria (each set sums to 100).
-const HACKATHON_CRITERIA = {
-  'AI Innovation Sprint': [
-    { name: 'Model Accuracy', max: 30 },
-    { name: 'Innovation', max: 30 },
-    { name: 'Code Quality', max: 40 },
-  ],
-  'Cloud Native Challenge': [
-    { name: 'Scalability', max: 40 },
-    { name: 'Security', max: 30 },
-    { name: 'Implementation', max: 30 },
-  ],
-  // Hackathons without an entry (e.g. "FinTech Build Weekend") use DEFAULT_CRITERIA.
-}
-
-const getCriteriaFor = (hackathon) =>
-  HACKATHON_CRITERIA[hackathon] ?? DEFAULT_CRITERIA
-
-const ANALYSIS_MS = 2000
-
-// Mock "AI suggested" value scaled to the criterion's max (~60–92%).
-const randomSuggestion = (max) =>
-  Math.min(max, Math.round(max * (0.6 + Math.random() * 0.32)))
 
 function ExternalLinkIcon({ className }) {
   return (
@@ -56,19 +34,21 @@ function ScoreManagement() {
   const [error, setError] = useState('')
   const { showToast } = useToast()
 
+  // ----- Grading modal state -----
   const [activeSubmission, setActiveSubmission] = useState(null)
-  const [phase, setPhase] = useState('loading') // 'loading' | 'scoring'
-  // Criteria for the active submission's hackathon, and parallel score values.
   const [activeCriteria, setActiveCriteria] = useState([])
+  const [criteriaLoading, setCriteriaLoading] = useState(false)
   const [scores, setScores] = useState([])
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiRan, setAiRan] = useState(false)
+  const [activeAiFeedback, setActiveAiFeedback] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const timerRef = useRef(null)
 
   // Load all submissions once on mount.
   useEffect(() => {
     let active = true
     axiosClient
-      .get('/api/submissions')
+      .get('/admin/submissions')
       .then((res) => {
         if (active) setSubmissions(res.data)
       })
@@ -83,52 +63,97 @@ function ScoreManagement() {
     }
   }, [])
 
-  // Clean up a pending analysis timer on unmount.
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
-  }, [])
-
   // Only APPROVED submissions are eligible for scoring (case-insensitive).
   const displayedSubmissions = submissions.filter(
     (submission) => submission.status?.toUpperCase() === 'APPROVED',
   )
 
-  const openEvaluation = (submission) => {
-    const criteria = getCriteriaFor(submission.hackathon)
+  // Open the Grading Center for a submission. Renders the rubric as empty inputs
+  // immediately (manual-first); no AI is triggered here. Fetches the hackathon's
+  // configured criteria, falling back to the defaults if none are set.
+  const openGrading = async (submission) => {
     setActiveSubmission(submission)
-    setActiveCriteria(criteria)
+    setAiRan(false)
+    setActiveAiFeedback('')
+    setActiveCriteria([])
     setScores([])
-    setPhase('loading')
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
-      // Reveal the rubric pre-filled with AI suggestions per criterion.
-      setScores(criteria.map((criterion) => randomSuggestion(criterion.max)))
-      setPhase('scoring')
-    }, ANALYSIS_MS)
+    setCriteriaLoading(true)
+
+    let criteria = DEFAULT_CRITERIA
+    try {
+      if (submission.hackathonId != null) {
+        const { data } = await axiosClient.get(
+          `/admin/hackathons/${submission.hackathonId}/criteria`,
+        )
+        if (Array.isArray(data) && data.length > 0) {
+          criteria = data.map((c) => ({ name: c.name, max: c.max }))
+        }
+      }
+    } catch {
+      // Keep the default criteria if the fetch fails.
+    } finally {
+      setActiveCriteria(criteria)
+      setScores(criteria.map(() => '')) // empty inputs — grade manually from scratch
+      setCriteriaLoading(false)
+    }
+  }
+
+  // Optional, non-blocking AI assist. Calls SubmissionAiService and maps the
+  // overall 0–10 score proportionally onto each criterion's max as a starting
+  // point the admin can edit. On failure we toast but keep the modal open.
+  const handleGetAiSuggestions = async () => {
+    if (!activeSubmission) return
+    setAiLoading(true)
+    try {
+      const { data: ai } = await axiosClient.post(
+        `/admin/submissions/${activeSubmission.id}/ai-evaluate`,
+      )
+      if (ai.aiScore != null) {
+        setScores(
+          activeCriteria.map((criterion) =>
+            Math.round(criterion.max * (ai.aiScore / 10)),
+          ),
+        )
+      }
+      setActiveAiFeedback(ai.aiFeedback ?? '')
+      setAiRan(true)
+      // Reflect the audit on the table row's AI Insight column too.
+      setSubmissions((prev) =>
+        prev.map((item) =>
+          item.id === activeSubmission.id
+            ? { ...item, aiScore: ai.aiScore, aiFeedback: ai.aiFeedback }
+            : item,
+        ),
+      )
+      showToast('AI suggestions applied — review and adjust before assigning.', 'success')
+    } catch {
+      showToast('AI suggestion failed. You can still grade manually.', 'error')
+    } finally {
+      setAiLoading(false)
+    }
   }
 
   const closeModal = () => {
-    if (timerRef.current) clearTimeout(timerRef.current)
     setActiveSubmission(null)
   }
 
   const handleScoreChange = (index, value) => {
-    const max = activeCriteria[index]?.max ?? 0
-    const clamped = Math.max(0, Math.min(max, Number(value) || 0))
     setScores((prev) => {
       const next = [...prev]
-      next[index] = clamped
+      if (value === '') {
+        next[index] = '' // allow a blank field while typing
+      } else {
+        const max = activeCriteria[index]?.max ?? 0
+        next[index] = Math.max(0, Math.min(max, Number(value) || 0))
+      }
       return next
     })
   }
 
   const totalMax = activeCriteria.reduce((sum, c) => sum + c.max, 0)
-  const totalScore = scores.reduce((sum, value) => sum + (value || 0), 0)
+  const totalScore = scores.reduce((sum, value) => sum + (Number(value) || 0), 0)
 
-  // Sum the rubric criteria locally and send the total to the scoring endpoint
-  // as { submissionId, score }, matching the backend contract.
+  // Persist whatever is currently in the inputs — AI run or not.
   const handleConfirm = async () => {
     if (!activeSubmission) return
 
@@ -138,7 +163,6 @@ function ScoreManagement() {
         submissionId: activeSubmission.id,
         score: totalScore,
       })
-      // Reflect the assigned score in the row immediately.
       setSubmissions((prev) =>
         prev.map((submission) =>
           submission.id === activeSubmission.id
@@ -155,23 +179,23 @@ function ScoreManagement() {
     }
   }
 
-  // Close the modal on Escape (unless mid-analysis or submitting).
+  // Close the modal on Escape (unless a save is in flight).
   useEffect(() => {
     if (!activeSubmission) return
     function handleKey(event) {
-      if (event.key === 'Escape' && phase === 'scoring' && !submitting) closeModal()
+      if (event.key === 'Escape' && !submitting) closeModal()
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
-  }, [activeSubmission, phase, submitting])
+  }, [activeSubmission, submitting])
 
   return (
     <div>
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-indigo-950">Score Management</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Run AI-assisted evaluations on approved submissions and assign final
-          scores.
+          Grade an approved submission against its rubric. AI assistance is
+          optional — you can score every criterion by hand.
         </p>
       </div>
 
@@ -184,25 +208,26 @@ function ScoreManagement() {
                 <th className="px-6 py-3">Project</th>
                 <th className="px-6 py-3">Repo</th>
                 <th className="px-6 py-3">Score</th>
+                <th className="px-6 py-3">AI Insight</th>
                 <th className="px-6 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
                     Loading submissions…
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-sm font-medium text-red-600">
+                  <td colSpan={6} className="py-12 text-center text-sm font-medium text-red-600">
                     {error}
                   </td>
                 </tr>
               ) : displayedSubmissions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
                     No approved submissions available for scoring. Check the
                     Submissions tab.
                   </td>
@@ -210,6 +235,8 @@ function ScoreManagement() {
               ) : (
                 displayedSubmissions.map((submission) => {
                   const isScored = submission.score !== null && submission.score !== undefined
+                  const hasAiAudit =
+                    submission.aiScore !== null && submission.aiScore !== undefined
 
                   return (
                     <tr
@@ -242,30 +269,49 @@ function ScoreManagement() {
                         {isScored ? (
                           <span className="text-base font-bold text-slate-900 tabular-nums">
                             {submission.score}
-                            <span className="text-sm font-normal text-slate-400">
-                              {' '}
-                              / 100
-                            </span>
+                            <span className="text-sm font-normal text-slate-400"> / 100</span>
                           </span>
                         ) : (
                           <span className="text-sm text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        {isScored ? (
-                          <span className="inline-flex cursor-default rounded-full border border-green-500 bg-green-50 px-3 py-0.5 text-xs font-bold uppercase tracking-wide text-green-700">
-                            Scored
-                          </span>
+                      <td className="px-6 py-4">
+                        {hasAiAudit ? (
+                          <div className="max-w-xs">
+                            <span className="inline-flex items-center rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-bold text-purple-700 ring-1 ring-purple-200">
+                              AI {submission.aiScore} / 10
+                            </span>
+                            {submission.aiFeedback && (
+                              <p
+                                className="mt-1 text-xs leading-snug text-slate-500"
+                                title={submission.aiFeedback}
+                              >
+                                {submission.aiFeedback}
+                              </p>
+                            )}
+                          </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => openEvaluation(submission)}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          >
-                            <span aria-hidden="true">✨</span>
-                            AI Evaluate
-                          </button>
+                          <span className="text-sm text-slate-400">—</span>
                         )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {/* Primary action — opens the Grading Center (no AI call). */}
+                        <div className="flex items-center justify-end">
+                          {isScored ? (
+                            <span className="inline-flex h-8 cursor-default items-center rounded-lg border border-green-500 bg-green-50 px-3 text-xs font-bold uppercase tracking-wide text-green-700">
+                              Scored
+                            </span>
+                          ) : (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => openGrading(submission)}
+                              className="min-w-[10.5rem]"
+                            >
+                              Grade Submission
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -276,10 +322,10 @@ function ScoreManagement() {
         </div>
       </div>
 
-      {/* ---------- AI evaluation modal ---------- */}
+      {/* ---------- Grading Center modal (manual-first, optional AI) ---------- */}
       {activeSubmission && (
         <div
-          onClick={phase === 'scoring' && !submitting ? closeModal : undefined}
+          onClick={!submitting ? closeModal : undefined}
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
         >
           <div
@@ -291,94 +337,105 @@ function ScoreManagement() {
             {/* Header */}
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-                  <span aria-hidden="true">✨</span>
-                  AI-Assisted Evaluation
-                </h3>
+                <h3 className="text-lg font-bold text-slate-900">Grading Center</h3>
                 <p className="mt-0.5 text-sm text-slate-500">
                   {activeSubmission.team} · {activeSubmission.projectTitle}
                 </p>
               </div>
             </div>
 
-            {phase === 'loading' ? (
-              /* Phase 1 — analyzing */
-              <div className="flex flex-col items-center justify-center gap-4 py-12">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-                <p className="animate-pulse text-center text-sm font-medium text-slate-600">
-                  Analyzing repository architecture and code quality…
+            {/* Optional, non-blocking AI assist */}
+            <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-purple-100 bg-purple-50/70 px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-purple-800">
+                  AI Assist <span className="font-normal text-purple-500">· optional</span>
                 </p>
+                {aiRan && activeAiFeedback ? (
+                  <p className="mt-0.5 text-xs leading-snug text-purple-900/80">
+                    {activeAiFeedback}
+                  </p>
+                ) : (
+                  <p className="mt-0.5 text-xs text-purple-700/80">
+                    Generate suggested scores you can edit — or grade entirely by hand.
+                  </p>
+                )}
               </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                isLoading={aiLoading}
+                onClick={handleGetAiSuggestions}
+                className="shrink-0"
+              >
+                {aiLoading ? (
+                  'Thinking…'
+                ) : aiRan ? (
+                  'Regenerate'
+                ) : (
+                  <>
+                    <span aria-hidden="true">✨</span>
+                    Get AI Suggestions
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Interactive, data-driven rubric — empty inputs by default */}
+            {criteriaLoading ? (
+              <p className="py-8 text-center text-sm text-slate-400">Loading criteria…</p>
             ) : (
-              /* Phase 2 — interactive, data-driven rubric */
-              <div>
-                <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
-                  ✨ AI-suggested scores below — review and adjust before
-                  assigning.
-                </p>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {activeCriteria.map((criterion, index) => (
-                    <div key={criterion.name}>
-                      <label
-                        htmlFor={`rubric-${index}`}
-                        className="mb-1 flex items-center justify-between text-sm font-medium text-slate-700"
-                      >
-                        <span>{criterion.name}</span>
-                        <span className="text-xs text-slate-400">
-                          / {criterion.max}
-                        </span>
-                      </label>
-                      <input
-                        id={`rubric-${index}`}
-                        type="number"
-                        min="0"
-                        max={criterion.max}
-                        value={scores[index] ?? 0}
-                        onChange={(event) =>
-                          handleScoreChange(index, event.target.value)
-                        }
-                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Auto-summed total */}
-                <div className="mt-6 flex items-center justify-between rounded-xl bg-slate-50 px-5 py-4">
-                  <span className="text-sm font-medium text-slate-600">
-                    Total Score
-                  </span>
-                  <span className="text-4xl font-extrabold text-slate-900 tabular-nums">
-                    {totalScore}
-                    <span className="text-lg font-normal text-slate-400">
-                      {' '}
-                      / {totalMax}
-                    </span>
-                  </span>
-                </div>
-
-                {/* Footer */}
-                <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={closeModal}
-                    disabled={submitting}
-                    className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleConfirm}
-                    disabled={submitting}
-                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {submitting ? 'Saving…' : 'Confirm & Assign Score'}
-                  </button>
-                </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {activeCriteria.map((criterion, index) => (
+                  <div key={criterion.name}>
+                    <label
+                      htmlFor={`rubric-${index}`}
+                      className="mb-1 flex items-center justify-between text-sm font-medium text-slate-700"
+                    >
+                      <span>{criterion.name}</span>
+                      <span className="text-xs text-slate-400">/ {criterion.max}</span>
+                    </label>
+                    <input
+                      id={`rubric-${index}`}
+                      type="number"
+                      min="0"
+                      max={criterion.max}
+                      value={scores[index] ?? ''}
+                      onChange={(event) => handleScoreChange(index, event.target.value)}
+                      placeholder="0"
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    />
+                  </div>
+                ))}
               </div>
             )}
+
+            {/* Auto-summed total */}
+            <div className="mt-6 flex items-center justify-between rounded-xl bg-slate-50 px-5 py-4">
+              <span className="text-sm font-medium text-slate-600">Total Score</span>
+              <span className="text-4xl font-extrabold text-slate-900 tabular-nums">
+                {totalScore}
+                <span className="text-lg font-normal text-slate-400"> / {totalMax}</span>
+              </span>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-6 flex justify-end gap-3">
+              <Button
+                variant="secondary"
+                onClick={closeModal}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleConfirm}
+                isLoading={submitting}
+                disabled={criteriaLoading}
+              >
+                {submitting ? 'Saving…' : 'Confirm & Assign Score'}
+              </Button>
+            </div>
           </div>
         </div>
       )}

@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { getHackathons, deleteHackathon } from '../services/hackathonService'
 import { useToast } from '../context/ToastContext'
 import Button from '../components/ui/Button'
+import CriteriaManager from '../components/CriteriaManager'
 
 // Skillspring status pill — case-insensitive with three distinct tones:
 // green for Active, blue for Upcoming, gray for Completed.
@@ -259,6 +260,10 @@ function HackathonList() {
                                   </span>
                                 )}
                               </p>
+
+                              <div className="mt-4 border-t border-gray-200 pt-4">
+                                <CriteriaManager hackathonId={hackathon.id} />
+                              </div>
                             </div>
                           </td>
                         </tr>

@@ -10,6 +10,7 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,6 +38,13 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                        // Public team submission intake — not behind JWT; guarded
+                        // instead by the X-Team-Secret header (TeamSecretValidator).
+                        .requestMatchers(HttpMethod.POST, "/submissions").permitAll()
+                        // Public, secret-free hackathon list for the submission form dropdown.
+                        .requestMatchers(HttpMethod.GET, "/submissions/hackathons").permitAll()
+                        // Clearing the audit log is a destructive admin-only action.
+                        .requestMatchers(HttpMethod.DELETE, "/admin/activities").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -15,4 +15,10 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     List<Submission> findByScoreIsNotNull();
 
     List<Submission> findByHackathonId(Long hackathonId);
+
+    /** Efficient COUNT(*) ... WHERE status = ? — no entities loaded. */
+    long countByStatus(SubmissionStatus status);
+
+    /** Efficient COUNT(*) ... WHERE score IS NOT NULL. */
+    long countByScoreIsNotNull();
 }
